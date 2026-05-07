@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { cpkAcumulado, isRecap, statusNorm } from "@/lib/tires";
-import { Kpi } from "@/components/Kpi";
+import { InfoCard } from "@/components/InfoCard";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
-import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
+import { fmtCpk, fmtMoneyK, fmtPct } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
-import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/financeiro")({ component: Page,
   head: () => ({ meta: [{ title: "Financeiro · TireOps" }, { name: "description", content: "Análise financeira da operação de pneus." }]}) });
@@ -59,20 +60,39 @@ function Page() {
     return { custoTotal, kmReal, kmProj, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, economia, prejuizo, custoFech };
   }, [filtered]);
 
+  const insights = useMemo<Insight[]>(() => {
+    const out: Insight[] = [];
+    if (data.economia > 0) out.push({ icon: TrendingUp, severity: "success", title: "Economia operacional", desc: `CPK real está abaixo do projetado, gerando economia de ${fmtMoneyK(data.economia)} nos ciclos encerrados.` });
+    if (data.prejuizo > 0) out.push({ icon: TrendingDown, severity: "destructive", title: "Prejuízo operacional", desc: `CPK real acima do projetado — perda de ${fmtMoneyK(data.prejuizo)} acumulada nos ciclos encerrados.` });
+    const piorFil = [...data.filiais].sort((a,b)=>b.custo-a.custo)[0];
+    if (piorFil) out.push({ icon: Wallet, severity: "warning", title: "Filial com maior custo", desc: `${piorFil.fi} concentra ${fmtMoneyK(piorFil.custo)} em custo total — revisar manutenção e rodízio.` });
+    if (data.custoSucata > 0) out.push({ icon: AlertTriangle, severity: "warning", title: "Perda em sucata", desc: `${fmtMoneyK(data.custoSucata)} foram perdidos em pneus sucateados.` });
+    return out;
+  }, [data]);
+
   return (
     <>
       <PageHeader title="Financeiro" subtitle="Performance financeira, real x projetado, e oportunidades de economia." />
       <FilterBar />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Kpi label="Custo Total Frota" value={fmtMoneyK(data.custoTotal)} icon={<Wallet className="size-4" />} accent="primary" />
-        <Kpi label="Custo Encerrado" value={fmtMoneyK(data.custoFech)} hint="ciclos finalizados" icon={<DollarSign className="size-4" />} />
-        <Kpi label="CPK Real x Projetado" value={`${fmtCpk(data.cpkReal)} / ${fmtCpk(data.cpkProj)}`} accent="info" />
-        <Kpi label="Performance KM" value={fmtPct(data.perf)} trend={data.perf-100} accent={data.perf>=100?"success":"destructive"} />
-        <Kpi label="Custo Estimado Recapagem" value={fmtMoneyK(data.custoRecap)} accent="warning" />
-        <Kpi label="Perda em Sucata" value={fmtMoneyK(data.custoSucata)} accent="destructive" />
-        <Kpi label="Economia Potencial" value={fmtMoneyK(data.economia)} icon={<TrendingUp className="size-4" />} accent="success" />
-        <Kpi label="Prejuízo Operacional" value={fmtMoneyK(data.prejuizo)} icon={<TrendingDown className="size-4" />} accent="destructive" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <InfoCard label="Custo total frota" value={fmtMoneyK(data.custoTotal)} tone="var(--primary)"
+          formula="Soma de ct (custo total acumulado) de todos os pneus filtrados." />
+        <InfoCard label="Custo encerrado" value={fmtMoneyK(data.custoFech)} sub="ciclos finalizados"
+          formula="Σ custo de vidas anteriores à atual de cada pneu." />
+        <InfoCard label="CPK real" value={fmtCpk(data.cpkReal)} tone="var(--success)"
+          formula="Σ custo encerrado ÷ Σ km encerrado (apenas ciclos fechados)." />
+        <InfoCard label="CPK projetado" value={fmtCpk(data.cpkProj)} tone="var(--info)"
+          formula="Custo total da frota ÷ KM projetado total (kp)." />
+        <InfoCard label="Performance KM" value={fmtPct(data.perf)}
+          tone={data.perf >= 95 ? "var(--success)" : data.perf >= 70 ? "var(--warning)" : "var(--destructive)"}
+          formula="(KM real total ÷ KM projetado total) × 100." />
+        <InfoCard label="Custo estimado recapagem" value={fmtMoneyK(data.custoRecap)} tone="var(--warning)"
+          formula="Pneus com mm ≤ 4 × R$ 800 (preço médio de recapagem)." />
+        <InfoCard label="Economia potencial" value={fmtMoneyK(data.economia)} tone="var(--success)"
+          formula="(CPK projetado − CPK real) × KM encerrado, quando real é menor que projetado." />
+        <InfoCard label="Prejuízo operacional" value={fmtMoneyK(data.prejuizo)} tone="var(--destructive)"
+          formula="(CPK real − CPK projetado) × KM encerrado, quando real é maior que projetado." />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
