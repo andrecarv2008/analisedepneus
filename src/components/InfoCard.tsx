@@ -1,6 +1,15 @@
 import { Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ReactNode } from "react";
+
+export type FormulaSpec =
+  | string
+  | {
+      description?: string;
+      formula?: string;
+      steps?: string[];
+      note?: string;
+    };
 
 export function InfoCard({
   label, value, sub, formula, tone, className = "",
@@ -8,35 +17,60 @@ export function InfoCard({
   label: string;
   value: ReactNode;
   sub?: ReactNode;
-  formula?: string;
+  formula?: FormulaSpec;
   tone?: string;
   className?: string;
 }) {
+  const spec: Exclude<FormulaSpec, string> | null =
+    typeof formula === "string" ? { description: formula } : formula ?? null;
+
   return (
     <div
-      className={`rounded-xl p-5 border ${className}`}
-      style={{ background: "oklch(0.21 0.02 255 / 0.6)", borderColor: "oklch(1 0 0 / 0.06)" }}
+      className={`rounded-xl p-5 border bg-card/60 ${className}`}
+      style={{ borderColor: "var(--border)" }}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="text-xs text-muted-foreground">{label}</div>
-        {formula && (
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="size-5 -mr-1 -mt-0.5 rounded-md flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-white/5 transition-colors"
-                  aria-label="Como é calculado"
-                >
-                  <Info className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
-                <div className="font-semibold mb-1">Como é calculado</div>
-                <div className="text-muted-foreground whitespace-pre-line">{formula}</div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {spec && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="size-5 -mr-1 -mt-0.5 rounded-md flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label="Como é calculado"
+              >
+                <Info className="size-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="start" className="w-80 p-0 overflow-hidden">
+              <div className="px-4 py-3 border-b border-border bg-secondary/40">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+                  Como é calculado
+                </div>
+                <div className="text-sm font-semibold text-foreground mt-0.5">{label}</div>
+              </div>
+              <div className="p-4 space-y-3 text-sm">
+                {spec.description && (
+                  <p className="text-foreground/90 leading-relaxed">{spec.description}</p>
+                )}
+                {spec.formula && (
+                  <div className="rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs text-foreground">
+                    {spec.formula}
+                  </div>
+                )}
+                {spec.steps && spec.steps.length > 0 && (
+                  <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside marker:text-primary">
+                    {spec.steps.map((s, i) => <li key={i}>{s}</li>)}
+                  </ol>
+                )}
+                {spec.note && (
+                  <p className="text-[11px] text-muted-foreground italic border-l-2 border-primary/40 pl-2">
+                    {spec.note}
+                  </p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
       <div
