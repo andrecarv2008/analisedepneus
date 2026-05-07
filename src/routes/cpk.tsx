@@ -136,6 +136,8 @@ function Page() {
           </div>
         </ChartCard>
       </div>
+
+      <InsightsBlock insights={insights} />
     </>
   );
 }
