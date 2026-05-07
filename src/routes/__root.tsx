@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { FiltersProvider } from "@/lib/filters-context";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 function NotFoundComponent() {
   return (
@@ -113,7 +115,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <FiltersProvider>
+        <div className="min-h-screen flex">
+          <Sidebar />
+          <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+            <Outlet />
+          </main>
+        </div>
+      </FiltersProvider>
     </QueryClientProvider>
   );
 }
