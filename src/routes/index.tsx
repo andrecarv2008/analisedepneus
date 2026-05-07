@@ -1,205 +1,273 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { cpkAcumulado, cpkProjetado, calcularDesgasteIrregular, isRecap, statusNorm } from "@/lib/tires";
-import { Kpi } from "@/components/Kpi";
+import { cpkAcumulado } from "@/lib/tires";
 import { PageHeader } from "@/components/PageHeader";
-import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, Legend,
-} from "recharts";
-import { Activity, AlertTriangle, DollarSign, Gauge, Package, RotateCw, TrendingUp, Truck, Trophy } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
-  head: () => ({ meta: [
-    { title: "Visão Geral · TireOps" },
-    { name: "description", content: "Visão executiva da operação de pneus." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Visão Geral · TireOps" },
+      { name: "description", content: "Visão executiva — ciclos encerrados." },
+    ],
+  }),
 });
 
-const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "oklch(0.6 0.18 280)", "oklch(0.7 0.15 100)"];
+type VidaAgg = {
+  v: number;
+  pneus: number;
+  custo: number;     // custo de ciclos encerrados
+  km: number;        // km real de ciclos encerrados
+  kmProj: number;    // km projetado de ciclos encerrados (kpv[0..v-2])
+  cpk: number;
+};
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6">
+      <div className="text-[11px] tracking-[0.18em] uppercase text-muted-foreground/80 mb-3 font-medium">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MetricCell({
+  label, value, tone, sub,
+}: { label: string; value: React.ReactNode; tone?: string; sub?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="font-display text-2xl md:text-[28px] font-bold tracking-tight" style={tone ? { color: tone } : undefined}>
+        {value}
+      </div>
+      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function FlatCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-xl p-5 border transition-colors ${className}`}
+      style={{
+        background: "oklch(0.21 0.02 255 / 0.6)",
+        borderColor: "oklch(1 0 0 / 0.06)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const colorByCpk = (cpk: number) => {
+  if (!cpk) return "var(--muted-foreground)";
+  if (cpk < 0.05) return "var(--success)";
+  if (cpk < 0.06) return "var(--success)";
+  if (cpk < 0.07) return "var(--warning)";
+  return "var(--destructive)";
+};
+
+const colorByPerf = (p: number) => {
+  if (!p) return "var(--muted-foreground)";
+  if (p >= 95) return "var(--success)";
+  if (p >= 70) return "var(--warning)";
+  return "var(--destructive)";
+};
 
 function Dashboard() {
   const { filtered } = useFilters();
+  const [selVida, setSelVida] = useState<number>(2);
 
-  const stats = useMemo(() => {
+  const data = useMemo(() => {
     const total = filtered.length;
-    const ativos = filtered.filter((t) => statusNorm(t) === "ativo").length;
-    const recap = filtered.filter((t) => statusNorm(t) === "recapagem").length;
-    const sucata = filtered.filter((t) => statusNorm(t) === "sucata").length;
-    const custoTotal = filtered.reduce((s, t) => s + (t.ct || 0), 0);
-    const kmTotal = filtered.reduce((s, t) => s + (t.kt || 0), 0);
-    const kmProj = filtered.reduce((s, t) => s + (t.kp || 0), 0);
+    let custoEnc = 0, kmEnc = 0, kmProjEnc = 0, pneusComEnc = 0;
+    const filiais = new Set<string>();
 
-    let custoFechado = 0, kmFechado = 0;
+    const porVida = new Map<number, VidaAgg>();
+    const ensure = (v: number) => {
+      let e = porVida.get(v);
+      if (!e) { e = { v, pneus: 0, custo: 0, km: 0, kmProj: 0, cpk: 0 }; porVida.set(v, e); }
+      return e;
+    };
+
     for (const t of filtered) {
-      const a = cpkAcumulado(t);
-      custoFechado += a.custo; kmFechado += a.km;
+      filiais.add(t.fi);
+      const v = t.v || 1;
+      const agg = ensure(v);
+      agg.pneus += 1;
+
+      const closed = Math.max(0, v - 1);
+      let c = 0, k = 0, kp = 0;
+      for (let i = 0; i < closed; i++) {
+        const ci = t.cv[i] || 0, ki = t.km[i] || 0, kpi = t.kpv[i] || 0;
+        if (ci > 0 && ki > 0) { c += ci; k += ki; }
+        kp += kpi;
+      }
+      agg.custo += c;
+      agg.km += k;
+      agg.kmProj += kp;
+
+      if (closed > 0 && k > 0) {
+        custoEnc += c; kmEnc += k; kmProjEnc += kp; pneusComEnc += 1;
+      }
     }
-    const cpkReal = kmFechado > 0 ? custoFechado / kmFechado : 0;
-    const cpkProj = kmProj > 0 ? custoTotal / kmProj : 0;
-    const perf = kmProj > 0 ? (kmTotal / kmProj) * 100 : 0;
 
-    const aptosRecap = filtered.filter(isRecap).length;
-    const desg = calcularDesgasteIrregular(filtered);
+    for (const a of porVida.values()) a.cpk = a.km > 0 ? a.custo / a.km : 0;
 
-    const porVida: Record<number, number> = {};
-    for (let i = 1; i <= 7; i++) porVida[i] = 0;
-    for (const t of filtered) if (t.v) porVida[t.v] = (porVida[t.v] || 0) + 1;
+    const cpkGlobal = kmEnc > 0 ? custoEnc / kmEnc : 0;
+    const perfGlobal = kmProjEnc > 0 ? (kmEnc / kmProjEnc) * 100 : 0;
 
-    // por filial
-    const filialMap = new Map<string, { custo: number; km: number; n: number; kmProj: number }>();
-    for (const t of filtered) {
-      const e = filialMap.get(t.fi) || { custo: 0, km: 0, n: 0, kmProj: 0 };
-      const a = cpkAcumulado(t);
-      e.custo += a.custo; e.km += a.km; e.n += 1; e.kmProj += t.kp;
-      filialMap.set(t.fi, e);
-    }
-    const filiais = [...filialMap.entries()].map(([fi, e]) => ({
-      fi, custo: e.custo, km: e.km, n: e.n,
-      cpk: e.km > 0 ? e.custo / e.km : 0,
-      perf: e.kmProj > 0 ? (e.km / e.kmProj) * 100 : 0,
-    }));
-    const ranked = [...filiais].filter((f) => f.cpk > 0).sort((a, b) => a.cpk - b.cpk);
-    const melhor = ranked[0];
-    const pior = ranked[ranked.length - 1];
+    const vidas = [...porVida.values()].sort((a, b) => a.v - b.v).filter((v) => v.v >= 1 && v.v <= 7);
 
-    const desgPorFilial = new Map<string, number>();
-    for (const d of desg) desgPorFilial.set(d.fi, (desgPorFilial.get(d.fi) || 0) + 1);
-
-    return { total, ativos, recap, sucata, custoTotal, kmTotal, kmProj, cpkReal, cpkProj, perf,
-      aptosRecap, desgN: desg.length, porVida, filiais, melhor, pior,
-      desgFilialArr: [...desgPorFilial.entries()].map(([fi, n]) => ({ fi, n })).sort((a,b)=>b.n-a.n).slice(0,8) };
+    return { total, custoEnc, kmEnc, kmProjEnc, pneusComEnc, cpkGlobal, perfGlobal, vidas, filiais: filiais.size };
   }, [filtered]);
 
-  const vidaData = Object.entries(stats.porVida).map(([k, v]) => ({ name: `${k}ª`, value: v }));
-  const statusData = [
-    { name: "Ativos", value: stats.ativos },
-    { name: "Recapagem", value: stats.recap },
-    { name: "Sucata", value: stats.sucata },
-  ];
-  const filialBars = stats.filiais.slice(0, 10).sort((a,b)=>b.custo-a.custo).map((f) => ({
-    name: f.fi.length > 14 ? f.fi.slice(0, 14) + "…" : f.fi, custo: f.custo, cpk: f.cpk,
-  }));
-  const evolCpk = [1,2,3,4,5,6,7].map((v) => {
-    const arr = filtered.filter((t) => t.v === v);
-    let c = 0, k = 0;
-    for (const t of arr) { const a = cpkAcumulado(t); c += a.custo; k += a.km; }
-    return { vida: `${v}ª`, cpk: k > 0 ? c / k : 0 };
-  });
+  const sel = data.vidas.find((v) => v.v === selVida) ?? data.vidas[0];
 
   return (
     <>
-      <PageHeader title="Visão Geral" subtitle="Inteligência executiva da frota — performance, custo e operação em tempo real." />
+      <PageHeader title="Visão Geral" subtitle="Inteligência executiva — ciclos encerrados, custos acumulados e performance real." />
       <FilterBar />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-        <Kpi label="Total de Pneus" value={fmtNum(stats.total)} icon={<Package className="size-4" />} accent="primary" />
-        <Kpi label="Ativos" value={fmtNum(stats.ativos)} hint={`${fmtPct((stats.ativos/Math.max(stats.total,1))*100)}`} icon={<Activity className="size-4" />} accent="success" />
-        <Kpi label="Em Recapagem" value={fmtNum(stats.recap)} icon={<RotateCw className="size-4" />} accent="info" />
-        <Kpi label="Sucateados" value={fmtNum(stats.sucata)} icon={<AlertTriangle className="size-4" />} accent="destructive" />
-        <Kpi label="Custo Total Frota" value={fmtMoneyK(stats.custoTotal)} icon={<DollarSign className="size-4" />} accent="accent" />
-        <Kpi label="KM Total Rodado" value={fmtNum(stats.kmTotal)} hint="km" icon={<Truck className="size-4" />} accent="primary" />
-        <Kpi label="CPK Real (encerrado)" value={fmtCpk(stats.cpkReal)} icon={<Gauge className="size-4" />} accent="success" />
-        <Kpi label="CPK Projetado" value={fmtCpk(stats.cpkProj)} hint={`Δ ${fmtPct(((stats.cpkReal-stats.cpkProj)/Math.max(stats.cpkProj,0.0001))*100)}`} icon={<TrendingUp className="size-4" />} accent="warning" />
-        <Kpi label="Performance KM" value={fmtPct(stats.perf)} trend={stats.perf - 100} icon={<Trophy className="size-4" />} accent="info" />
-        <Kpi label="Aptos p/ Recapagem" value={fmtNum(stats.aptosRecap)} hint="sulco ≤ 4mm" icon={<RotateCw className="size-4" />} accent="warning" />
-        <Kpi label="Desgaste Irregular" value={fmtNum(stats.desgN)} hint="≥ 1,6mm de diferença" icon={<AlertTriangle className="size-4" />} accent="destructive" />
-        <Kpi label="Melhor Filial (CPK)" value={stats.melhor?.fi.split(" ")[0] || "—"} hint={stats.melhor ? fmtCpk(stats.melhor.cpk) : ""} icon={<Trophy className="size-4" />} accent="success" />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Distribuição por Vida" subtitle="Quantidade de pneus em cada ciclo">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={vidaData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              <Bar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Status da Frota" subtitle="Composição por status operacional">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
-                {statusData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Evolução do CPK por Vida" subtitle="CPK acumulado em ciclos encerrados">
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={evolCpk}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="vida" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(v) => v.toFixed(2)} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }}
-                formatter={(v: number) => fmtCpk(v)} />
-              <Line type="monotone" dataKey="cpk" stroke="var(--chart-2)" strokeWidth={2.5} dot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <ChartCard title="Custo Acumulado por Filial" subtitle="Top 10 filiais — ciclos encerrados">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={filialBars} layout="vertical" margin={{ left: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickFormatter={(v) => fmtMoneyK(v)} />
-              <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={11} width={100} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }}
-                formatter={(v: number) => fmtMoneyK(v)} />
-              <Bar dataKey="custo" fill="var(--chart-2)" radius={[0,6,6,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Desgaste Irregular por Filial" subtitle="Pares dianteiros com Δ ≥ 1,6mm">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={stats.desgFilialArr.map(d => ({ name: d.fi.length>14?d.fi.slice(0,14)+"…":d.fi, n: d.n }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} angle={-20} textAnchor="end" height={60} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              <Bar dataKey="n" fill="var(--chart-5)" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass rounded-2xl p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Melhor Filial (CPK)</div>
-          <div className="font-display text-xl font-bold">{stats.melhor?.fi || "—"}</div>
-          <div className="text-success mt-1 text-sm" style={{ color: "var(--success)" }}>{stats.melhor ? fmtCpk(stats.melhor.cpk) : ""}</div>
+      {/* KPIs principais */}
+      <Section title="Visão geral da frota — ciclos encerrados">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          <FlatCard>
+            <MetricCell
+              label="CPK real global"
+              value={<span style={{ color: "var(--success)" }}>{fmtCpk(data.cpkGlobal)}</span>}
+              sub="por km · ciclos enc."
+            />
+          </FlatCard>
+          <FlatCard>
+            <MetricCell
+              label="Custo total enc."
+              value={fmtMoneyK(data.custoEnc)}
+              sub={`${fmtNum(data.pneusComEnc)} pneus com enc.`}
+            />
+          </FlatCard>
+          <FlatCard>
+            <MetricCell
+              label="KM real acumulado"
+              value={<span style={{ color: "var(--info)" }}>{fmtMoneyK(data.kmEnc).replace("R$ ", "")}</span>}
+              sub="km rodados encerrados"
+            />
+          </FlatCard>
+          <FlatCard>
+            <MetricCell
+              label="KM projetado enc."
+              value={fmtMoneyK(data.kmProjEnc).replace("R$ ", "")}
+              sub="projetado nas vidas enc."
+            />
+          </FlatCard>
+          <FlatCard>
+            <MetricCell
+              label="Performance global"
+              value={<span style={{ color: colorByPerf(data.perfGlobal) }}>{fmtPct(data.perfGlobal)}</span>}
+              sub={`${fmtMoneyK(data.kmEnc - data.kmProjEnc).replace("R$ ", "")} km vs projetado`}
+            />
+          </FlatCard>
+          <FlatCard>
+            <MetricCell
+              label="Total pneus"
+              value={fmtNum(data.total)}
+              sub={`em ${data.filiais} filiais`}
+            />
+          </FlatCard>
         </div>
-        <div className="glass rounded-2xl p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Pior Filial (CPK)</div>
-          <div className="font-display text-xl font-bold">{stats.pior?.fi || "—"}</div>
-          <div className="mt-1 text-sm" style={{ color: "var(--destructive)" }}>{stats.pior ? fmtCpk(stats.pior.cpk) : ""}</div>
+      </Section>
+
+      {/* Distribuição por vida atual */}
+      <Section title="Distribuição por vida atual">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {data.vidas.slice(0, 5).map((v) => {
+            const pct = (v.pneus / Math.max(data.total, 1)) * 100;
+            const isSel = sel?.v === v.v;
+            const cpkColor = colorByCpk(v.cpk);
+            return (
+              <button
+                key={v.v}
+                onClick={() => setSelVida(v.v)}
+                className="text-left rounded-xl p-4 border transition-all hover:translate-y-[-1px]"
+                style={{
+                  background: isSel
+                    ? "oklch(0.24 0.04 255 / 0.7)"
+                    : "oklch(0.21 0.02 255 / 0.5)",
+                  borderColor: isSel ? "var(--primary)" : "oklch(1 0 0 / 0.06)",
+                  boxShadow: isSel ? "0 0 0 1px var(--primary), 0 8px 24px -12px var(--primary)" : undefined,
+                }}
+              >
+                <div className="text-xs text-muted-foreground mb-2">{v.v}ª vida</div>
+                <div className="font-display text-2xl font-bold">{fmtPct(pct)}</div>
+                <div className="text-xs text-muted-foreground mt-1">{fmtNum(v.pneus)} pneus</div>
+                <div className="mt-3 text-sm font-medium" style={{ color: cpkColor }}>
+                  {v.cpk > 0 ? fmtCpk(v.cpk) : "—"}
+                </div>
+                <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "oklch(1 0 0 / 0.06)" }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, pct * 2)}%`,
+                      background: cpkColor,
+                    }}
+                  />
+                </div>
+              </button>
+            );
+          })}
         </div>
-        <div className="glass rounded-2xl p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Maior índice de Recapagem</div>
-          <div className="font-display text-xl font-bold">
-            {(() => {
-              const m = new Map<string, number>();
-              for (const t of filtered) if (isRecap(t)) m.set(t.fi, (m.get(t.fi) || 0) + 1);
-              const top = [...m.entries()].sort((a,b)=>b[1]-a[1])[0];
-              return top ? top[0] : "—";
-            })()}
+      </Section>
+
+      {/* Detalhe da vida selecionada */}
+      {sel && (
+        <FlatCard className="mb-6">
+          <div className="font-display text-lg font-bold mb-5">
+            {sel.v}ª Vida — {fmtNum(sel.pneus)} pneus{sel.v > 1 ? " com ciclos encerrados" : ""}
           </div>
-        </div>
-      </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-start">
+            <MetricCell
+              label="CPK acumulado"
+              value={<span style={{ color: colorByCpk(sel.cpk) }}>{sel.cpk > 0 ? fmtCpk(sel.cpk) : "—"}</span>}
+            />
+            <MetricCell label="Custo enc." value={fmtMoneyK(sel.custo)} />
+            <MetricCell
+              label="KM real enc."
+              value={<span style={{ color: "var(--info)" }}>{fmtMoneyK(sel.km).replace("R$ ", "")}</span>}
+            />
+            <MetricCell label="KM projetado" value={fmtMoneyK(sel.kmProj).replace("R$ ", "")} />
+          </div>
+
+          <div className="my-5 flex items-center justify-center">
+            <div className="size-9 rounded-full border flex items-center justify-center"
+              style={{ borderColor: "oklch(1 0 0 / 0.1)" }}>
+              <ChevronDown className="size-4 text-muted-foreground" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <MetricCell
+              label="Performance"
+              value={<span style={{ color: colorByPerf(sel.kmProj > 0 ? (sel.km / sel.kmProj) * 100 : 0) }}>
+                {sel.kmProj > 0 ? fmtPct((sel.km / sel.kmProj) * 100) : "—"}
+              </span>}
+            />
+            <MetricCell
+              label="Diferença KM"
+              value={<span style={{ color: sel.km - sel.kmProj >= 0 ? "var(--success)" : "var(--destructive)" }}>
+                {fmtMoneyK(sel.km - sel.kmProj).replace("R$ ", "")} km
+              </span>}
+            />
+            <MetricCell label="Total pneus" value={fmtNum(sel.pneus)} />
+            <MetricCell label="Ciclo atual" value={`${sel.v}º ciclo`} />
+          </div>
+        </FlatCard>
+      )}
     </>
   );
 }
