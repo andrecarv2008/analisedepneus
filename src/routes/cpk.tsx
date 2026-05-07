@@ -12,7 +12,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import { TrendingUp, Trophy, AlertTriangle, Target } from "lucide-react";
 
 export const Route = createFileRoute("/cpk")({ component: Page,
-  head: () => ({ meta: [{ title: "Análise CPK · TireOps" }, { name: "description", content: "Custo por KM com regra de ciclos encerrados." }]}) });
+  head: () => ({ meta: [{ title: "Análise CPK · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Custo por KM com regra de ciclos encerrados." }]}) });
 
 function Page() {
   const { filtered } = useFilters();

@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
   head: () => ({
     meta: [
-      { title: "Visão Geral · TireOps" },
+      { title: "Visão Geral · Análise de Pneus - Grupo Mateus" },
       { name: "description", content: "Visão executiva — ciclos encerrados." },
     ],
   }),
