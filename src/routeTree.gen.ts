@@ -11,8 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TabelaRouteImport } from './routes/tabela'
 import { Route as RecapagemRouteImport } from './routes/recapagem'
-import { Route as PorcentagensRouteImport } from './routes/porcentagens'
-import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as FinanceiroRouteImport } from './routes/financeiro'
 import { Route as DesgasteRouteImport } from './routes/desgaste'
 import { Route as CpkRouteImport } from './routes/cpk'
@@ -26,16 +24,6 @@ const TabelaRoute = TabelaRouteImport.update({
 const RecapagemRoute = RecapagemRouteImport.update({
   id: '/recapagem',
   path: '/recapagem',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PorcentagensRoute = PorcentagensRouteImport.update({
-  id: '/porcentagens',
-  path: '/porcentagens',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InsightsRoute = InsightsRouteImport.update({
-  id: '/insights',
-  path: '/insights',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FinanceiroRoute = FinanceiroRouteImport.update({
@@ -64,8 +52,6 @@ export interface FileRoutesByFullPath {
   '/cpk': typeof CpkRoute
   '/desgaste': typeof DesgasteRoute
   '/financeiro': typeof FinanceiroRoute
-  '/insights': typeof InsightsRoute
-  '/porcentagens': typeof PorcentagensRoute
   '/recapagem': typeof RecapagemRoute
   '/tabela': typeof TabelaRoute
 }
@@ -74,8 +60,6 @@ export interface FileRoutesByTo {
   '/cpk': typeof CpkRoute
   '/desgaste': typeof DesgasteRoute
   '/financeiro': typeof FinanceiroRoute
-  '/insights': typeof InsightsRoute
-  '/porcentagens': typeof PorcentagensRoute
   '/recapagem': typeof RecapagemRoute
   '/tabela': typeof TabelaRoute
 }
@@ -85,8 +69,6 @@ export interface FileRoutesById {
   '/cpk': typeof CpkRoute
   '/desgaste': typeof DesgasteRoute
   '/financeiro': typeof FinanceiroRoute
-  '/insights': typeof InsightsRoute
-  '/porcentagens': typeof PorcentagensRoute
   '/recapagem': typeof RecapagemRoute
   '/tabela': typeof TabelaRoute
 }
@@ -97,28 +79,16 @@ export interface FileRouteTypes {
     | '/cpk'
     | '/desgaste'
     | '/financeiro'
-    | '/insights'
-    | '/porcentagens'
     | '/recapagem'
     | '/tabela'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/cpk'
-    | '/desgaste'
-    | '/financeiro'
-    | '/insights'
-    | '/porcentagens'
-    | '/recapagem'
-    | '/tabela'
+  to: '/' | '/cpk' | '/desgaste' | '/financeiro' | '/recapagem' | '/tabela'
   id:
     | '__root__'
     | '/'
     | '/cpk'
     | '/desgaste'
     | '/financeiro'
-    | '/insights'
-    | '/porcentagens'
     | '/recapagem'
     | '/tabela'
   fileRoutesById: FileRoutesById
@@ -128,8 +98,6 @@ export interface RootRouteChildren {
   CpkRoute: typeof CpkRoute
   DesgasteRoute: typeof DesgasteRoute
   FinanceiroRoute: typeof FinanceiroRoute
-  InsightsRoute: typeof InsightsRoute
-  PorcentagensRoute: typeof PorcentagensRoute
   RecapagemRoute: typeof RecapagemRoute
   TabelaRoute: typeof TabelaRoute
 }
@@ -148,20 +116,6 @@ declare module '@tanstack/react-router' {
       path: '/recapagem'
       fullPath: '/recapagem'
       preLoaderRoute: typeof RecapagemRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/porcentagens': {
-      id: '/porcentagens'
-      path: '/porcentagens'
-      fullPath: '/porcentagens'
-      preLoaderRoute: typeof PorcentagensRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/insights': {
-      id: '/insights'
-      path: '/insights'
-      fullPath: '/insights'
-      preLoaderRoute: typeof InsightsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/financeiro': {
@@ -200,11 +154,19 @@ const rootRouteChildren: RootRouteChildren = {
   CpkRoute: CpkRoute,
   DesgasteRoute: DesgasteRoute,
   FinanceiroRoute: FinanceiroRoute,
-  InsightsRoute: InsightsRoute,
-  PorcentagensRoute: PorcentagensRoute,
   RecapagemRoute: RecapagemRoute,
   TabelaRoute: TabelaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
