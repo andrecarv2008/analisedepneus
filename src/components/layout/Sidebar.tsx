@@ -16,12 +16,12 @@ export function Sidebar() {
     <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
       <div className="px-6 py-6 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl glow flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <span className="text-primary-foreground font-display font-bold text-lg">T</span>
+          <div className="size-10 rounded-xl glow flex items-center justify-center shrink-0" style={{ background: "var(--gradient-primary)" }}>
+            <span className="text-primary-foreground font-display font-bold text-lg">M</span>
           </div>
-          <div>
-            <div className="font-display font-bold text-lg leading-tight">TireOps</div>
-            <div className="text-xs text-muted-foreground">Fleet Intelligence</div>
+          <div className="min-w-0">
+            <div className="font-display font-bold text-sm leading-tight">ANÁLISE DE PNEUS</div>
+            <div className="text-[11px] text-muted-foreground">Grupo Mateus</div>
           </div>
         </div>
       </div>
