@@ -2,13 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { cpkAcumulado, cpkProjetado } from "@/lib/tires";
-import { Kpi } from "@/components/Kpi";
+import { InfoCard } from "@/components/InfoCard";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
-import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend } from "recharts";
-import { TrendingUp, Trophy, AlertTriangle, Gauge } from "lucide-react";
+import { fmtCpk, fmtNum, fmtPct } from "@/lib/format";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line } from "recharts";
+import { TrendingUp, Trophy, AlertTriangle, Target } from "lucide-react";
 
 export const Route = createFileRoute("/cpk")({ component: Page,
   head: () => ({ meta: [{ title: "Análise CPK · TireOps" }, { name: "description", content: "Custo por KM com regra de ciclos encerrados." }]}) });
@@ -44,17 +45,31 @@ function Page() {
     return { rows, cpkMedio, cpkProjMed, filiais, piores, melhores, porVida };
   }, [filtered]);
 
+  const insights = useMemo<Insight[]>(() => {
+    const out: Insight[] = [];
+    if (data.filiais[0]) out.push({ icon: Trophy, severity: "success", title: "Melhor filial em CPK", desc: `${data.filiais[0].fi} com CPK de ${fmtCpk(data.filiais[0].cpk)}.` });
+    const pior = data.filiais[data.filiais.length - 1];
+    if (pior && pior !== data.filiais[0]) out.push({ icon: AlertTriangle, severity: "destructive", title: "Filial crítica", desc: `${pior.fi} com CPK de ${fmtCpk(pior.cpk)} — ${fmtPct(((pior.cpk - data.filiais[0].cpk) / data.filiais[0].cpk) * 100)} acima da melhor.` });
+    if (data.cpkMedio < data.cpkProjMed) out.push({ icon: Target, severity: "success", title: "CPK abaixo do projetado", desc: `Média real ${fmtCpk(data.cpkMedio)} vs projetado ${fmtCpk(data.cpkProjMed)} — operação eficiente.` });
+    else out.push({ icon: TrendingUp, severity: "warning", title: "CPK acima do projetado", desc: `Média real ${fmtCpk(data.cpkMedio)} excede projetado ${fmtCpk(data.cpkProjMed)}.` });
+    return out;
+  }, [data]);
+
   return (
     <>
       <PageHeader title="Análise de CPK" subtitle="Custo por KM rodado — apenas ciclos encerrados (vidas anteriores à atual)." />
       <FilterBar />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Kpi label="CPK Real Médio" value={fmtCpk(data.cpkMedio)} icon={<Gauge className="size-4" />} accent="success" />
-        <Kpi label="CPK Projetado Médio" value={fmtCpk(data.cpkProjMed)} icon={<TrendingUp className="size-4" />} accent="warning" />
-        <Kpi label="Diferença" value={fmtPct(((data.cpkMedio-data.cpkProjMed)/Math.max(data.cpkProjMed,0.0001))*100)}
-          trend={(data.cpkProjMed-data.cpkMedio)/Math.max(data.cpkProjMed,0.0001)*100} accent="info" />
-        <Kpi label="Pneus c/ ciclo encerrado" value={fmtNum(data.rows.filter(r=>r.real>0).length)} icon={<Trophy className="size-4" />} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <InfoCard label="CPK real médio" value={fmtCpk(data.cpkMedio)} tone="var(--success)"
+          formula="Média aritmética do CPK acumulado (Σ custo enc. ÷ Σ km enc.) entre pneus com ciclos encerrados." />
+        <InfoCard label="CPK projetado médio" value={fmtCpk(data.cpkProjMed)} tone="var(--warning)"
+          formula="Média do CPK projetado por pneu = ct ÷ kp (custo total ÷ km projetado)." />
+        <InfoCard label="Diferença" value={fmtPct(((data.cpkMedio-data.cpkProjMed)/Math.max(data.cpkProjMed,0.0001))*100)}
+          tone={data.cpkMedio <= data.cpkProjMed ? "var(--success)" : "var(--destructive)"}
+          formula="(CPK real − CPK projetado) ÷ CPK projetado × 100. Negativo = melhor que projetado." />
+        <InfoCard label="Pneus c/ ciclo encerrado" value={fmtNum(data.rows.filter(r=>r.real>0).length)}
+          formula="Pneus que estão na 2ª vida ou maior (já fecharam ao menos um ciclo)." />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
