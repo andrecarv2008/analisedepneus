@@ -10,7 +10,6 @@ import {
 
 import appCss from "../styles.css?url";
 import { FiltersProvider } from "@/lib/filters-context";
-import { ThemeProvider } from "@/lib/theme-context";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 function NotFoundComponent() {
@@ -75,14 +74,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Análise de Pneus · Grupo Mateus" },
-      { name: "description", content: "Dashboard executivo de análise de pneus do Grupo Mateus — CPK, recapagem, desgaste e performance." },
-      { name: "author", content: "Grupo Mateus" },
-      { property: "og:title", content: "Análise de Pneus · Grupo Mateus" },
-      { property: "og:description", content: "Dashboard executivo de análise de pneus — Grupo Mateus." },
+      { title: "GESTÃO DE PNEUS" },
+      { name: "description", content: "Dashboard executivo de gestão de pneus de frota pesada — CPK, recapagem, desgaste e performance." },
+      { name: "author", content: "TireOps" },
+      { property: "og:title", content: "GESTÃO DE PNEUS" },
+      { property: "og:description", content: "Dashboard executivo de gestão de pneus de frota pesada — CPK, recapagem, desgaste e performance." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "GESTÃO DE PNEUS" },
+      { name: "twitter:description", content: "Dashboard executivo de gestão de pneus de frota pesada — CPK, recapagem, desgaste e performance." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4e0edd91-7820-4ebb-896c-730598e7e5d0/id-preview-19751ff3--80c5a33c-04fa-406a-bf63-59c2a11edf34.lovable.app-1778183723601.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4e0edd91-7820-4ebb-896c-730598e7e5d0/id-preview-19751ff3--80c5a33c-04fa-406a-bf63-59c2a11edf34.lovable.app-1778183723601.png" },
     ],
     links: [
       {
@@ -116,16 +119,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <FiltersProvider>
-          <div className="min-h-screen flex">
-            <Sidebar />
-            <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
-              <Outlet />
-            </main>
-          </div>
-        </FiltersProvider>
-      </ThemeProvider>
+      <FiltersProvider>
+        <div className="min-h-screen flex">
+          <Sidebar />
+          <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+            <Outlet />
+          </main>
+        </div>
+      </FiltersProvider>
     </QueryClientProvider>
   );
 }
