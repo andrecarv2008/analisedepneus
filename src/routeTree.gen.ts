@@ -9,8 +9,50 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TabelaRouteImport } from './routes/tabela'
+import { Route as RecapagemRouteImport } from './routes/recapagem'
+import { Route as PorcentagensRouteImport } from './routes/porcentagens'
+import { Route as InsightsRouteImport } from './routes/insights'
+import { Route as FinanceiroRouteImport } from './routes/financeiro'
+import { Route as DesgasteRouteImport } from './routes/desgaste'
+import { Route as CpkRouteImport } from './routes/cpk'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TabelaRoute = TabelaRouteImport.update({
+  id: '/tabela',
+  path: '/tabela',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecapagemRoute = RecapagemRouteImport.update({
+  id: '/recapagem',
+  path: '/recapagem',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PorcentagensRoute = PorcentagensRouteImport.update({
+  id: '/porcentagens',
+  path: '/porcentagens',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightsRoute = InsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceiroRoute = FinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DesgasteRoute = DesgasteRouteImport.update({
+  id: '/desgaste',
+  path: '/desgaste',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CpkRoute = CpkRouteImport.update({
+  id: '/cpk',
+  path: '/cpk',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +61,130 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cpk': typeof CpkRoute
+  '/desgaste': typeof DesgasteRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/insights': typeof InsightsRoute
+  '/porcentagens': typeof PorcentagensRoute
+  '/recapagem': typeof RecapagemRoute
+  '/tabela': typeof TabelaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cpk': typeof CpkRoute
+  '/desgaste': typeof DesgasteRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/insights': typeof InsightsRoute
+  '/porcentagens': typeof PorcentagensRoute
+  '/recapagem': typeof RecapagemRoute
+  '/tabela': typeof TabelaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cpk': typeof CpkRoute
+  '/desgaste': typeof DesgasteRoute
+  '/financeiro': typeof FinanceiroRoute
+  '/insights': typeof InsightsRoute
+  '/porcentagens': typeof PorcentagensRoute
+  '/recapagem': typeof RecapagemRoute
+  '/tabela': typeof TabelaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/cpk'
+    | '/desgaste'
+    | '/financeiro'
+    | '/insights'
+    | '/porcentagens'
+    | '/recapagem'
+    | '/tabela'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/cpk'
+    | '/desgaste'
+    | '/financeiro'
+    | '/insights'
+    | '/porcentagens'
+    | '/recapagem'
+    | '/tabela'
+  id:
+    | '__root__'
+    | '/'
+    | '/cpk'
+    | '/desgaste'
+    | '/financeiro'
+    | '/insights'
+    | '/porcentagens'
+    | '/recapagem'
+    | '/tabela'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CpkRoute: typeof CpkRoute
+  DesgasteRoute: typeof DesgasteRoute
+  FinanceiroRoute: typeof FinanceiroRoute
+  InsightsRoute: typeof InsightsRoute
+  PorcentagensRoute: typeof PorcentagensRoute
+  RecapagemRoute: typeof RecapagemRoute
+  TabelaRoute: typeof TabelaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tabela': {
+      id: '/tabela'
+      path: '/tabela'
+      fullPath: '/tabela'
+      preLoaderRoute: typeof TabelaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recapagem': {
+      id: '/recapagem'
+      path: '/recapagem'
+      fullPath: '/recapagem'
+      preLoaderRoute: typeof RecapagemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/porcentagens': {
+      id: '/porcentagens'
+      path: '/porcentagens'
+      fullPath: '/porcentagens'
+      preLoaderRoute: typeof PorcentagensRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insights': {
+      id: '/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof InsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/financeiro': {
+      id: '/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof FinanceiroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/desgaste': {
+      id: '/desgaste'
+      path: '/desgaste'
+      fullPath: '/desgaste'
+      preLoaderRoute: typeof DesgasteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cpk': {
+      id: '/cpk'
+      path: '/cpk'
+      fullPath: '/cpk'
+      preLoaderRoute: typeof CpkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +197,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CpkRoute: CpkRoute,
+  DesgasteRoute: DesgasteRoute,
+  FinanceiroRoute: FinanceiroRoute,
+  InsightsRoute: InsightsRoute,
+  PorcentagensRoute: PorcentagensRoute,
+  RecapagemRoute: RecapagemRoute,
+  TabelaRoute: TabelaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

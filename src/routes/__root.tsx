@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { FiltersProvider } from "@/lib/filters-context";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 function NotFoundComponent() {
   return (
@@ -72,11 +74,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "TireOps · Fleet Tire Intelligence" },
+      { name: "description", content: "Dashboard executivo de gestão de pneus de frota pesada — CPK, recapagem, desgaste e performance." },
+      { name: "author", content: "TireOps" },
+      { property: "og:title", content: "TireOps · Fleet Tire Intelligence" },
+      { property: "og:description", content: "Dashboard executivo de gestão de pneus." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -113,7 +115,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <FiltersProvider>
+        <div className="min-h-screen flex">
+          <Sidebar />
+          <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
+            <Outlet />
+          </main>
+        </div>
+      </FiltersProvider>
     </QueryClientProvider>
   );
 }
