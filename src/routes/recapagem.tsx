@@ -16,7 +16,7 @@ const PRECO_RECAP = 800;
 const PRECO_NOVO = 2400;
 
 export const Route = createFileRoute("/recapagem")({ component: Page,
-  head: () => ({ meta: [{ title: "Recapagem · TireOps" }, { name: "description", content: "Pneus aptos para recapagem." }]}) });
+  head: () => ({ meta: [{ title: "Recapagem · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Pneus aptos para recapagem." }]}) });
 
 function Page() {
   const { filtered } = useFilters();

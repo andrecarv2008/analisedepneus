@@ -12,7 +12,7 @@ import { AlertTriangle, AlertOctagon, Wrench, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/desgaste")({ component: Page,
-  head: () => ({ meta: [{ title: "Desgaste Irregular · TireOps" }, { name: "description", content: "Análise de desgaste irregular dos pneus dianteiros." }]}) });
+  head: () => ({ meta: [{ title: "Desgaste Irregular · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Análise de desgaste irregular dos pneus dianteiros." }]}) });
 
 function Page() {
   const { filtered } = useFilters();

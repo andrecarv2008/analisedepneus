@@ -12,7 +12,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import { TrendingUp, TrendingDown, Wallet, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/financeiro")({ component: Page,
-  head: () => ({ meta: [{ title: "Financeiro · TireOps" }, { name: "description", content: "Análise financeira da operação de pneus." }]}) });
+  head: () => ({ meta: [{ title: "Financeiro · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Análise financeira da operação de pneus." }]}) });
 
 function Page() {
   const { filtered } = useFilters();
