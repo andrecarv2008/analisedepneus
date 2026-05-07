@@ -123,6 +123,8 @@ function Page() {
           </table>
         </div>
       </ChartCard>
+
+      <InsightsBlock insights={insights} />
     </>
   );
 }
