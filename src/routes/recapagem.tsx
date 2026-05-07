@@ -2,16 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { isRecap, fabricante } from "@/lib/tires";
-import { Kpi } from "@/components/Kpi";
+import { InfoCard } from "@/components/InfoCard";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { fmtMoneyK, fmtNum } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { RotateCw, AlertCircle, DollarSign } from "lucide-react";
+import { Zap, AlertCircle, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const PRECO_RECAP = 800;
+const PRECO_NOVO = 2400;
 
 export const Route = createFileRoute("/recapagem")({ component: Page,
   head: () => ({ meta: [{ title: "Recapagem · TireOps" }, { name: "description", content: "Pneus aptos para recapagem." }]}) });
@@ -33,17 +35,32 @@ function Page() {
   }, [aptos]);
 
   const custoEst = aptos.length * PRECO_RECAP;
+  const economia = aptos.length * (PRECO_NOVO - PRECO_RECAP);
+  const criticos = aptos.filter(t=>(t.mm??99)<=2).length;
+
+  const insights = useMemo<Insight[]>(() => {
+    const out: Insight[] = [];
+    out.push({ icon: Zap, severity: "success", title: "Economia da recapagem", desc: `Recapando ${aptos.length} pneus, a frota deixa de gastar ${fmtMoneyK(economia)} em pneus novos.` });
+    if (criticos > 0) out.push({ icon: AlertCircle, severity: "destructive", title: "Pneus críticos", desc: `${criticos} pneus com sulco ≤ 2 mm — risco operacional. Recapar imediatamente ou retirar de uso.` });
+    if (porFilial[0]) out.push({ icon: DollarSign, severity: "info", title: "Filial prioritária", desc: `${porFilial[0].fi} concentra ${porFilial[0].n} pneus aptos — agendar lote de recapagem.` });
+    return out;
+  }, [aptos, economia, criticos, porFilial]);
 
   return (
     <>
       <PageHeader title="Recapagem" subtitle="Pneus com sulco ≤ 4 mm — aptos para próximo ciclo de recapagem." />
       <FilterBar />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Kpi label="Aptos para Recapagem" value={fmtNum(aptos.length)} icon={<RotateCw className="size-4" />} accent="info" />
-        <Kpi label="Custo Estimado" value={fmtMoneyK(custoEst)} hint={`R$ ${PRECO_RECAP}/un`} icon={<DollarSign className="size-4" />} accent="warning" />
-        <Kpi label="Filiais Impactadas" value={fmtNum(porFilial.length)} accent="primary" />
-        <Kpi label="Críticos (≤2mm)" value={fmtNum(aptos.filter(t=>(t.mm??99)<=2).length)} icon={<AlertCircle className="size-4" />} accent="destructive" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <InfoCard label="Aptos para recapagem" value={fmtNum(aptos.length)} tone="var(--info)"
+          formula="Pneus com sulco mm ≤ 4 (regra de elegibilidade para recapagem)." />
+        <InfoCard label="Custo estimado" value={fmtMoneyK(custoEst)} tone="var(--warning)"
+          sub={`R$ ${PRECO_RECAP}/un`}
+          formula={`Quantidade de aptos × R$ ${PRECO_RECAP} (preço médio de uma recapagem).`} />
+        <InfoCard label="Economia vs novo" value={fmtMoneyK(economia)} tone="var(--success)"
+          formula={`Aptos × (R$ ${PRECO_NOVO} pneu novo − R$ ${PRECO_RECAP} recapagem).`} />
+        <InfoCard label="Críticos (≤2mm)" value={fmtNum(criticos)} tone="var(--destructive)"
+          formula="Pneus aptos com sulco mm ≤ 2 — prioridade máxima." />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
