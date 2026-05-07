@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, TrendingUp, AlertTriangle, RotateCw, DollarSign, Lightbulb, PieChart, Table2 } from "lucide-react";
+import { LayoutDashboard, TrendingUp, AlertTriangle, RotateCw, DollarSign, Table2 } from "lucide-react";
 
 const items = [
   { to: "/", label: "Visão Geral", icon: LayoutDashboard },
@@ -7,8 +7,6 @@ const items = [
   { to: "/desgaste", label: "Desgaste", icon: AlertTriangle },
   { to: "/recapagem", label: "Recapagem", icon: RotateCw },
   { to: "/financeiro", label: "Financeiro", icon: DollarSign },
-  { to: "/insights", label: "Insights", icon: Lightbulb },
-  { to: "/porcentagens", label: "Porcentagens", icon: PieChart },
   { to: "/tabela", label: "Tabela", icon: Table2 },
 ] as const;
 
