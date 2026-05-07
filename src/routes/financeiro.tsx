@@ -121,6 +121,8 @@ function Page() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      <InsightsBlock insights={insights} />
     </>
   );
 }
