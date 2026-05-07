@@ -20,11 +20,19 @@ function Page() {
     const rows = filtered.map((t) => {
       const a = cpkAcumulado(t);
       const proj = cpkProjetado(t);
-      return { t, real: a.cpk, custo: a.custo, km: a.km, proj, diff: proj > 0 ? ((a.cpk - proj) / proj) * 100 : 0 };
+      return { t, real: a.cpk, custo: a.custo, km: a.km, proj, custoTotal: t.ct, kmProj: t.kp, diff: proj > 0 ? ((a.cpk - proj) / proj) * 100 : 0 };
     });
     const validos = rows.filter((r) => r.real > 0);
-    const cpkMedio = validos.length ? validos.reduce((s,r)=>s+r.real,0)/validos.length : 0;
-    const cpkProjMed = rows.filter(r=>r.proj>0).reduce((s,r,_,a)=>s+r.proj/a.length,0);
+
+    // Médias ponderadas (Σcusto / Σkm) — refletem a realidade da operação
+    const sumCustoEnc = validos.reduce((s, r) => s + r.custo, 0);
+    const sumKmEnc = validos.reduce((s, r) => s + r.km, 0);
+    const cpkMedio = sumKmEnc > 0 ? sumCustoEnc / sumKmEnc : 0;
+
+    const projRows = rows.filter((r) => r.proj > 0);
+    const sumCustoProj = projRows.reduce((s, r) => s + r.custoTotal, 0);
+    const sumKmProj = projRows.reduce((s, r) => s + r.kmProj, 0);
+    const cpkProjMed = sumKmProj > 0 ? sumCustoProj / sumKmProj : 0;
 
     const filialMap = new Map<string, { c: number; k: number }>();
     for (const r of rows) {
@@ -62,14 +70,44 @@ function Page() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <InfoCard label="CPK real médio" value={fmtCpk(data.cpkMedio)} tone="var(--success)"
-          formula="Média aritmética do CPK acumulado (Σ custo enc. ÷ Σ km enc.) entre pneus com ciclos encerrados." />
+          formula={{
+            description: "Custo médio por quilômetro considerando apenas ciclos já encerrados — ponderado pela operação real.",
+            formula: "Σ custo enc.  ÷  Σ km real enc.",
+            steps: [
+              "Para cada pneu, somamos custo e KM das vidas já fechadas (vidas anteriores à atual).",
+              "Somamos esses valores em toda a frota filtrada.",
+              "Dividimos custo total acumulado pelo KM total acumulado.",
+            ],
+            note: "Usamos média ponderada (e não média aritmética por pneu) para evitar distorções de pneus com pouco KM.",
+          }} />
         <InfoCard label="CPK projetado médio" value={fmtCpk(data.cpkProjMed)} tone="var(--warning)"
-          formula="Média do CPK projetado por pneu = ct ÷ kp (custo total ÷ km projetado)." />
-        <InfoCard label="Diferença" value={fmtPct(((data.cpkMedio-data.cpkProjMed)/Math.max(data.cpkProjMed,0.0001))*100)}
+          formula={{
+            description: "CPK que a operação alcançaria se cada pneu rodasse seu KM projetado total.",
+            formula: "Σ custo total  ÷  Σ km projetado",
+            steps: [
+              "Somamos o custo total (ct) de todos os pneus com KM projetado.",
+              "Somamos o KM projetado total (kp) desses mesmos pneus.",
+              "Dividimos custo projetado por KM projetado.",
+            ],
+            note: "Serve como referência teórica do potencial de eficiência.",
+          }} />
+        <InfoCard label="Diferença real × projetado" value={fmtPct(((data.cpkMedio-data.cpkProjMed)/Math.max(data.cpkProjMed,0.0001))*100)}
           tone={data.cpkMedio <= data.cpkProjMed ? "var(--success)" : "var(--destructive)"}
-          formula="(CPK real − CPK projetado) ÷ CPK projetado × 100. Negativo = melhor que projetado." />
+          formula={{
+            description: "Quanto o CPK real está acima ou abaixo do CPK projetado.",
+            formula: "(CPK real − CPK projetado) ÷ CPK projetado × 100",
+            steps: [
+              "Calculamos a diferença entre os dois CPKs ponderados.",
+              "Dividimos pela referência (projetado) e convertemos em %.",
+            ],
+            note: "Negativo = melhor que projetado. Positivo = acima do esperado.",
+          }} />
         <InfoCard label="Pneus c/ ciclo encerrado" value={fmtNum(data.rows.filter(r=>r.real>0).length)}
-          formula="Pneus que estão na 2ª vida ou maior (já fecharam ao menos um ciclo)." />
+          formula={{
+            description: "Total de pneus que já fecharam pelo menos uma vida (estão na 2ª vida ou maior).",
+            formula: "count(pneus onde vida ≥ 2)",
+            note: "Apenas estes entram nos cálculos de CPK real médio.",
+          }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
