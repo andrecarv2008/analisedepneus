@@ -347,7 +347,7 @@ function Dashboard() {
         </div>
       </Section>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
