@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { cpkAcumulado, isRecap, statusNorm } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
+import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
@@ -60,15 +60,31 @@ function Page() {
     return { custoTotal, kmReal, kmProj, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, economia, prejuizo, custoFech };
   }, [filtered]);
 
-  const insights = useMemo<Insight[]>(() => {
-    const out: Insight[] = [];
-    if (data.economia > 0) out.push({ icon: TrendingUp, severity: "success", title: "Economia operacional", desc: `CPK real está abaixo do projetado, gerando economia de ${fmtMoneyK(data.economia)} nos ciclos encerrados.` });
-    if (data.prejuizo > 0) out.push({ icon: TrendingDown, severity: "destructive", title: "Prejuízo operacional", desc: `CPK real acima do projetado — perda de ${fmtMoneyK(data.prejuizo)} acumulada nos ciclos encerrados.` });
-    const piorFil = [...data.filiais].sort((a,b)=>b.custo-a.custo)[0];
-    if (piorFil) out.push({ icon: Wallet, severity: "warning", title: "Filial com maior custo", desc: `${piorFil.fi} concentra ${fmtMoneyK(piorFil.custo)} em custo total — revisar manutenção e rodízio.` });
-    if (data.custoSucata > 0) out.push({ icon: AlertTriangle, severity: "warning", title: "Perda em sucata", desc: `${fmtMoneyK(data.custoSucata)} foram perdidos em pneus sucateados.` });
-    return out;
-  }, [data]);
+  const groups = useMemo<FilialInsights[]>(() => {
+    type Acc = { c: number; k: number; kp: number; custoTot: number; sucata: number; recap: number; pneus: number };
+    const m = new Map<string, Acc>();
+    for (const t of filtered) {
+      const e = m.get(t.fi) || { c: 0, k: 0, kp: 0, custoTot: 0, sucata: 0, recap: 0, pneus: 0 };
+      const a = cpkAcumulado(t);
+      e.c += a.custo; e.k += a.km; e.kp += t.kp; e.custoTot += t.ct; e.pneus += 1;
+      if (statusNorm(t) === "sucata") e.sucata += t.ct;
+      if (isRecap(t)) e.recap += 1;
+      m.set(t.fi, e);
+    }
+    return [...m.entries()].sort((a, b) => b[1].custoTot - a[1].custoTot).slice(0, 8).map(([fi, e]) => {
+      const cpkR = e.k > 0 ? e.c / e.k : 0;
+      const cpkP = e.kp > 0 ? e.custoTot / e.kp : 0;
+      const economia = cpkP > cpkR && e.k > 0 ? (cpkP - cpkR) * e.k : 0;
+      const prejuizo = cpkR > cpkP && e.k > 0 ? (cpkR - cpkP) * e.k : 0;
+      const list: Insight[] = [];
+      list.push({ icon: Wallet, severity: "info", title: "Custo total da filial", desc: `${fmtMoneyK(e.custoTot)} acumulados em ${fmtNum(e.pneus)} pneus.` });
+      if (economia > 0) list.push({ icon: TrendingUp, severity: "success", title: "Economia operacional", desc: `CPK real ${fmtCpk(cpkR)} abaixo do projetado ${fmtCpk(cpkP)} — ${fmtMoneyK(economia)} economizados.` });
+      if (prejuizo > 0) list.push({ icon: TrendingDown, severity: "destructive", title: "Prejuízo operacional", desc: `CPK real ${fmtCpk(cpkR)} acima do projetado ${fmtCpk(cpkP)} — perda de ${fmtMoneyK(prejuizo)}.` });
+      if (e.sucata > 0) list.push({ icon: AlertTriangle, severity: "warning", title: "Perda em sucata", desc: `${fmtMoneyK(e.sucata)} perdidos em pneus sucateados.` });
+      if (e.recap > 0) list.push({ icon: Wallet, severity: "info", title: "Investimento em recapagem", desc: `${fmtNum(e.recap)} pneus aptos · ${fmtMoneyK(e.recap * 800)} estimados.` });
+      return { filial: fi, metric: `${fmtNum(e.pneus)} pneus · custo ${fmtMoneyK(e.custoTot)} · CPK ${cpkR > 0 ? fmtCpk(cpkR) : "—"}`, insights: list };
+    });
+  }, [filtered]);
 
   return (
     <>
@@ -122,7 +138,7 @@ function Page() {
         </ChartCard>
       </div>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
