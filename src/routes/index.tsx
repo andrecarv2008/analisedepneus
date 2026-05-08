@@ -156,11 +156,21 @@ function Dashboard() {
             formula="Soma de kpv[i] (projeção por vida) para vidas i anteriores à atual."
           />
           <InfoCard
-            label="Performance global"
+            label="Performance KM"
             value={fmtPct(data.perfGlobal)}
             tone={colorByPerf(data.perfGlobal)}
             sub={`${fmtMoneyK(data.kmEnc - data.kmProjEnc).replace("R$ ", "")} km vs projetado`}
-            formula="(KM real encerrado ÷ KM projetado encerrado) × 100.\nMede o cumprimento da projeção apenas em ciclos fechados."
+            formula={{
+              description: "Aproveitamento do KM projetado considerando APENAS ciclos encerrados (vidas anteriores à atual de cada pneu).",
+              formula: "(Σ KM real enc. ÷ Σ KM projetado enc.) × 100",
+              steps: [
+                "Para cada pneu, percorremos as vidas i < vida atual (vidas já fechadas).",
+                "Somamos km[i] (real) e kpv[i] (projetado) apenas quando AMBOS > 0 — campos vazios são ignorados.",
+                "Não incluímos pneus ativos sem ciclo encerrado, vidas abertas nem projeções futuras.",
+                "Dividimos o total real pelo total projetado e multiplicamos por 100.",
+              ],
+              note: "Mesma base de ciclos encerrados usada no CPK — garante consistência entre indicadores.",
+            }}
           />
           <InfoCard
             label="Total pneus"
@@ -168,6 +178,24 @@ function Dashboard() {
             sub={`em ${data.filiais} filiais`}
             formula="Contagem de pneus após aplicação dos filtros ativos."
           />
+        </div>
+      </Section>
+
+      {/* Auditoria — base de cálculo */}
+      <Section title="Auditoria — base de cálculo (ciclos encerrados)">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <InfoCard label="Pneus considerados" value={fmtNum(data.pneusComEnc)} tone="var(--info)"
+            sub={`de ${fmtNum(data.total)} no filtro`}
+            formula="Pneus com ao menos 1 ciclo encerrado válido (km real e km projetado preenchidos)." />
+          <InfoCard label="Ciclos encerrados" value={fmtNum(data.ciclosEnc)}
+            sub="vidas fechadas válidas"
+            formula="Soma das vidas anteriores à vida atual de cada pneu, contando apenas as que têm km real > 0 e km projetado > 0." />
+          <InfoCard label="KM real utilizado" value={fmtNum(data.kmEnc)} tone="var(--success)"
+            sub="km rodados encerrados"
+            formula="Σ km[i] das vidas i < vida atual, ignorando campos vazios." />
+          <InfoCard label="KM projetado utilizado" value={fmtNum(data.kmProjEnc)} tone="var(--warning)"
+            sub="projeção das mesmas vidas"
+            formula="Σ kpv[i] das mesmas vidas encerradas usadas no KM real (mesma base, mesmos pneus)." />
         </div>
       </Section>
 
