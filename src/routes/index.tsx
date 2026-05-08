@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { cpkAcumulado, calcularDesgasteIrregular, fabricante, isRecap, statusNorm } from "@/lib/tires";
+import { cpkAcumulado, calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { PageHeader } from "@/components/PageHeader";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { InfoCard } from "@/components/InfoCard";
@@ -53,7 +53,7 @@ function Dashboard() {
 
   const data = useMemo(() => {
     const total = filtered.length;
-    let custoEnc = 0, kmEnc = 0, kmProjEnc = 0, pneusComEnc = 0;
+    let custoEnc = 0, kmEnc = 0, kmProjEnc = 0, pneusComEnc = 0, ciclosEnc = 0;
     const filiais = new Set<string>();
     const porVida = new Map<number, VidaAgg>();
     const ensure = (v: number) => {
@@ -66,15 +66,12 @@ function Dashboard() {
       const v = t.v || 1;
       const agg = ensure(v);
       agg.pneus += 1;
-      const closed = Math.max(0, v - 1);
-      let c = 0, k = 0, kp = 0;
-      for (let i = 0; i < closed; i++) {
-        const ci = t.cv[i] || 0, ki = t.km[i] || 0, kpi = t.kpv[i] || 0;
-        if (ci > 0 && ki > 0) { c += ci; k += ki; }
-        kp += kpi;
+      const s = encerradoStats(t);
+      agg.custo += s.custo; agg.km += s.kmReal; agg.kmProj += s.kmProj;
+      if (s.ciclos > 0) {
+        custoEnc += s.custo; kmEnc += s.kmReal; kmProjEnc += s.kmProj;
+        pneusComEnc += 1; ciclosEnc += s.ciclos;
       }
-      agg.custo += c; agg.km += k; agg.kmProj += kp;
-      if (closed > 0 && k > 0) { custoEnc += c; kmEnc += k; kmProjEnc += kp; pneusComEnc += 1; }
     }
     for (const a of porVida.values()) a.cpk = a.km > 0 ? a.custo / a.km : 0;
     const cpkGlobal = kmEnc > 0 ? custoEnc / kmEnc : 0;
@@ -97,7 +94,7 @@ function Dashboard() {
     const filData = [...filMap.entries()].map(([k, v]) => ({ name: k.length > 14 ? k.slice(0, 14) + "…" : k, value: v, pct: (v / Math.max(total, 1)) * 100 }))
       .sort((a, b) => b.value - a.value).slice(0, 10);
 
-    return { total, custoEnc, kmEnc, kmProjEnc, pneusComEnc, cpkGlobal, perfGlobal, vidas, filiais: filiais.size,
+    return { total, custoEnc, kmEnc, kmProjEnc, pneusComEnc, ciclosEnc, cpkGlobal, perfGlobal, vidas, filiais: filiais.size,
       ativos, recap, desg, criticos, fabData, filData };
   }, [filtered]);
 
@@ -159,11 +156,21 @@ function Dashboard() {
             formula="Soma de kpv[i] (projeção por vida) para vidas i anteriores à atual."
           />
           <InfoCard
-            label="Performance global"
+            label="Performance KM"
             value={fmtPct(data.perfGlobal)}
             tone={colorByPerf(data.perfGlobal)}
             sub={`${fmtMoneyK(data.kmEnc - data.kmProjEnc).replace("R$ ", "")} km vs projetado`}
-            formula="(KM real encerrado ÷ KM projetado encerrado) × 100.\nMede o cumprimento da projeção apenas em ciclos fechados."
+            formula={{
+              description: "Aproveitamento do KM projetado considerando APENAS ciclos encerrados (vidas anteriores à atual de cada pneu).",
+              formula: "(Σ KM real enc. ÷ Σ KM projetado enc.) × 100",
+              steps: [
+                "Para cada pneu, percorremos as vidas i < vida atual (vidas já fechadas).",
+                "Somamos km[i] (real) e kpv[i] (projetado) apenas quando AMBOS > 0 — campos vazios são ignorados.",
+                "Não incluímos pneus ativos sem ciclo encerrado, vidas abertas nem projeções futuras.",
+                "Dividimos o total real pelo total projetado e multiplicamos por 100.",
+              ],
+              note: "Mesma base de ciclos encerrados usada no CPK — garante consistência entre indicadores.",
+            }}
           />
           <InfoCard
             label="Total pneus"
@@ -171,6 +178,24 @@ function Dashboard() {
             sub={`em ${data.filiais} filiais`}
             formula="Contagem de pneus após aplicação dos filtros ativos."
           />
+        </div>
+      </Section>
+
+      {/* Auditoria — base de cálculo */}
+      <Section title="Auditoria — base de cálculo (ciclos encerrados)">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <InfoCard label="Pneus considerados" value={fmtNum(data.pneusComEnc)} tone="var(--info)"
+            sub={`de ${fmtNum(data.total)} no filtro`}
+            formula="Pneus com ao menos 1 ciclo encerrado válido (km real e km projetado preenchidos)." />
+          <InfoCard label="Ciclos encerrados" value={fmtNum(data.ciclosEnc)}
+            sub="vidas fechadas válidas"
+            formula="Soma das vidas anteriores à vida atual de cada pneu, contando apenas as que têm km real > 0 e km projetado > 0." />
+          <InfoCard label="KM real utilizado" value={fmtNum(data.kmEnc)} tone="var(--success)"
+            sub="km rodados encerrados"
+            formula="Σ km[i] das vidas i < vida atual, ignorando campos vazios." />
+          <InfoCard label="KM projetado utilizado" value={fmtNum(data.kmProjEnc)} tone="var(--warning)"
+            sub="projeção das mesmas vidas"
+            formula="Σ kpv[i] das mesmas vidas encerradas usadas no KM real (mesma base, mesmos pneus)." />
         </div>
       </Section>
 
