@@ -52,6 +52,22 @@ export function performance(t: Tire): number {
   return 0;
 }
 
+/** Soma KM real, KM projetado, custo e nº de ciclos encerrados (vidas anteriores à atual) de um pneu.
+ *  Ignora campos vazios (0). Não inclui a vida ativa nem projeções futuras. */
+export function encerradoStats(t: Tire): { kmReal: number; kmProj: number; custo: number; ciclos: number } {
+  const closed = Math.max(0, (t.v || 1) - 1);
+  let kmReal = 0, kmProj = 0, custo = 0, ciclos = 0;
+  for (let i = 0; i < closed; i++) {
+    const k = t.km[i] || 0;
+    const kp = t.kpv[i] || 0;
+    const c = t.cv[i] || 0;
+    if (k > 0 && kp > 0) {
+      kmReal += k; kmProj += kp; custo += c; ciclos += 1;
+    }
+  }
+  return { kmReal, kmProj, custo, ciclos };
+}
+
 export function isRecap(t: Tire): boolean {
   return (t.mm ?? 99) <= 4;
 }
