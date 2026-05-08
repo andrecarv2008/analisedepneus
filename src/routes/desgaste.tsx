@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { calcularDesgasteIrregular } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
+import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
@@ -22,20 +22,33 @@ function Page() {
 
   const sevColor = (s: string) => s==="alta" ? "var(--destructive)" : s==="média" ? "var(--warning)" : "var(--info)";
 
-  const insights = useMemo<Insight[]>(() => {
-    const out: Insight[] = [];
-    if (list.length === 0) {
-      out.push({ icon: Target, severity: "success", title: "Sem desgaste irregular", desc: "Nenhum par dianteiro apresenta diferença ≥ 1,6 mm. Operação saudável." });
-      return out;
+  const groups = useMemo<FilialInsights[]>(() => {
+    type Acc = { alta: number; med: number; baixa: number; total: number; maxDiff: number };
+    const m = new Map<string, Acc>();
+    for (const d of list) {
+      const e = m.get(d.fi) || { alta: 0, med: 0, baixa: 0, total: 0, maxDiff: 0 };
+      e.total += 1;
+      if (d.severidade === "alta") e.alta += 1;
+      else if (d.severidade === "média") e.med += 1;
+      else e.baixa += 1;
+      if (d.diff > e.maxDiff) e.maxDiff = d.diff;
+      m.set(d.fi, e);
     }
-    const m = new Map<string, number>();
-    for (const d of list) m.set(d.fi, (m.get(d.fi) || 0) + 1);
-    const top = [...m.entries()].sort((a,b)=>b[1]-a[1])[0];
-    out.push({ icon: AlertTriangle, severity: "warning", title: "Filial mais afetada", desc: `${top[0]} concentra ${top[1]} ocorrências de desgaste irregular.` });
-    if (sevAlta > 0) out.push({ icon: AlertOctagon, severity: "destructive", title: "Casos críticos", desc: `${sevAlta} pares com Δ ≥ 3 mm — risco de blow-out e perda prematura. Alinhamento imediato.` });
-    out.push({ icon: Wrench, severity: "info", title: "Plano de ação sugerido", desc: `${sevAlta + sevMed} veículos requerem alinhamento; demais demandam apenas rodízio.` });
-    return out;
-  }, [list, sevAlta, sevMed]);
+    return [...m.entries()].sort((a, b) => b[1].total - a[1].total).map(([fi, e]) => {
+      const insights: Insight[] = [];
+      insights.push({
+        icon: AlertTriangle,
+        severity: e.alta > 0 ? "destructive" : e.med > 0 ? "warning" : "info",
+        title: "Ocorrências detectadas",
+        desc: `${fmtNum(e.total)} pares dianteiros com Δ ≥ 1,6mm — maior diferença: ${e.maxDiff.toFixed(2)}mm.`,
+      });
+      if (e.alta > 0) insights.push({ icon: AlertOctagon, severity: "destructive", title: "Casos críticos (Δ ≥ 3mm)", desc: `${fmtNum(e.alta)} pares — risco de blow-out e perda prematura. Alinhamento imediato.` });
+      const acao = e.alta + e.med;
+      if (acao > 0) insights.push({ icon: Wrench, severity: "info", title: "Plano de ação", desc: `${fmtNum(acao)} veículos requerem alinhamento; ${fmtNum(e.baixa)} apenas rodízio.` });
+      else insights.push({ icon: Target, severity: "success", title: "Sem severidade alta/média", desc: "Apenas casos leves — rodízio resolve." });
+      return { filial: fi, metric: `${fmtNum(e.total)} pares · alta ${e.alta} · média ${e.med} · baixa ${e.baixa}`, insights };
+    });
+  }, [list]);
 
   return (
     <>
@@ -91,7 +104,7 @@ function Page() {
         </div>
       </ChartCard>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
