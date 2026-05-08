@@ -100,26 +100,64 @@ function Dashboard() {
 
   const sel = data.vidas.find((v) => v.v === selVida) ?? data.vidas[0];
 
-  // Insights da página (Visão Geral)
-  const insights = useMemo<Insight[]>(() => {
-    const list: Insight[] = [];
-    const filMap = new Map<string, { c: number; k: number }>();
+  // Insights por filial — ciclos encerrados
+  const groups = useMemo<FilialInsights[]>(() => {
+    type Acc = { c: number; k: number; kp: number; pneus: number; recap: number; criticos: number; ciclos: number };
+    const m = new Map<string, Acc>();
     for (const t of filtered) {
-      const a = cpkAcumulado(t);
-      const e = filMap.get(t.fi) || { c: 0, k: 0 };
-      e.c += a.custo; e.k += a.km; filMap.set(t.fi, e);
+      const e = m.get(t.fi) || { c: 0, k: 0, kp: 0, pneus: 0, recap: 0, criticos: 0, ciclos: 0 };
+      const s = encerradoStats(t);
+      e.c += s.custo; e.k += s.kmReal; e.kp += s.kmProj; e.ciclos += s.ciclos;
+      e.pneus += 1;
+      if (isRecap(t)) e.recap += 1;
+      if ((t.mm ?? 99) <= 2) e.criticos += 1;
+      m.set(t.fi, e);
     }
-    const fil = [...filMap.entries()].map(([fi, e]) => ({ fi, cpk: e.k > 0 ? e.c / e.k : 0 })).filter((f) => f.cpk > 0).sort((a, b) => a.cpk - b.cpk);
-    const melhor = fil[0], pior = fil[fil.length - 1];
-    if (melhor) list.push({ icon: Target, severity: "success", title: "Melhor filial em CPK", desc: `${melhor.fi} opera com CPK de ${fmtCpk(melhor.cpk)} — referência da operação.` });
-    if (pior && pior !== melhor) list.push({ icon: AlertTriangle, severity: "destructive", title: "Filial crítica em CPK", desc: `${pior.fi} apresenta CPK de ${fmtCpk(pior.cpk)} — ${fmtPct(((pior.cpk - (melhor?.cpk || 0)) / (melhor?.cpk || 1)) * 100)} acima da melhor filial.` });
-    if (data.recap > 0) list.push({ icon: Zap, severity: "success", title: "Oportunidade de recapagem", desc: `${data.recap} pneus aptos. Economia potencial estimada: ${fmtMoneyK(data.recap * 1600)} (recap ~R$800 vs novo ~R$2.400).` });
-    if (data.perfGlobal >= 100) list.push({ icon: TrendingUp, severity: "success", title: "Performance acima do projetado", desc: `Frota atingiu ${fmtPct(data.perfGlobal)} dos km projetados nos ciclos encerrados.` });
-    else if (data.perfGlobal > 0) list.push({ icon: TrendingDown, severity: "warning", title: "Performance abaixo do projetado", desc: `Frota está em ${fmtPct(data.perfGlobal)} — gap de ${fmtNum(data.kmProjEnc - data.kmEnc)} km vs projeção.` });
-    if (data.desg > 0) list.push({ icon: AlertTriangle, severity: "warning", title: "Desgaste irregular detectado", desc: `${data.desg} pares dianteiros com Δ ≥ 1,6mm — revisar alinhamento e calibragem.` });
-    list.push({ icon: Lightbulb, severity: "info", title: "Projeção financeira", desc: `Com CPK global de ${fmtCpk(data.cpkGlobal)}, a frota tende a gastar ${fmtMoneyK(data.cpkGlobal * data.kmProjEnc * 0.3)} no próximo trimestre operacional.` });
-    return list;
-  }, [filtered, data]);
+    const arr = [...m.entries()].map(([fi, e]) => ({
+      fi, ...e,
+      cpk: e.k > 0 ? e.c / e.k : 0,
+      perf: e.kp > 0 ? (e.k / e.kp) * 100 : 0,
+    }));
+    const validas = arr.filter((f) => f.ciclos > 0);
+    const melhorCpk = validas.length ? validas.reduce((a, b) => (a.cpk < b.cpk ? a : b)) : null;
+    const desgPorFil = new Map<string, number>();
+    for (const d of calcularDesgasteIrregular(filtered)) desgPorFil.set(d.fi, (desgPorFil.get(d.fi) || 0) + 1);
+
+    const out: FilialInsights[] = arr
+      .sort((a, b) => b.pneus - a.pneus)
+      .slice(0, 8)
+      .map((f) => {
+        const list: Insight[] = [];
+        if (f.ciclos === 0) {
+          list.push({ icon: Lightbulb, severity: "info", title: "Sem ciclos encerrados", desc: `${fmtNum(f.pneus)} pneus na filial, mas nenhum fechou vida ainda — sem base para CPK real.` });
+        } else {
+          if (melhorCpk && f.fi === melhorCpk.fi) {
+            list.push({ icon: Target, severity: "success", title: "Referência em CPK", desc: `Melhor CPK da operação: ${fmtCpk(f.cpk)} sobre ${fmtNum(f.ciclos)} ciclos encerrados.` });
+          } else if (melhorCpk) {
+            const gap = ((f.cpk - melhorCpk.cpk) / melhorCpk.cpk) * 100;
+            list.push({
+              icon: gap > 20 ? AlertTriangle : Target,
+              severity: gap > 20 ? "destructive" : gap > 8 ? "warning" : "info",
+              title: "CPK vs melhor filial",
+              desc: `${fmtCpk(f.cpk)} — ${gap >= 0 ? `${fmtPct(gap)} acima` : `${fmtPct(-gap)} abaixo`} de ${melhorCpk.fi} (${fmtCpk(melhorCpk.cpk)}).`,
+            });
+          }
+          if (f.perf >= 100) list.push({ icon: TrendingUp, severity: "success", title: "Performance KM acima do projetado", desc: `${fmtPct(f.perf)} de cumprimento — superou a projeção em ${fmtNum(f.k - f.kp)} km.` });
+          else list.push({ icon: TrendingDown, severity: f.perf >= 70 ? "warning" : "destructive", title: "Performance KM abaixo do projetado", desc: `${fmtPct(f.perf)} — gap de ${fmtNum(f.kp - f.k)} km vs projeção.` });
+        }
+        if (f.recap > 0) list.push({ icon: Zap, severity: "success", title: "Oportunidade de recapagem", desc: `${fmtNum(f.recap)} pneus aptos · economia potencial ${fmtMoneyK(f.recap * 1600)}.` });
+        if (f.criticos > 0) list.push({ icon: AlertTriangle, severity: "destructive", title: "Pneus críticos (≤2mm)", desc: `${fmtNum(f.criticos)} pneus em estado crítico — risco operacional imediato.` });
+        const desg = desgPorFil.get(f.fi) || 0;
+        if (desg > 0) list.push({ icon: AlertTriangle, severity: "warning", title: "Desgaste irregular", desc: `${fmtNum(desg)} pares dianteiros com Δ ≥ 1,6mm — revisar alinhamento.` });
+
+        return {
+          filial: f.fi,
+          metric: `${fmtNum(f.pneus)} pneus · CPK ${f.cpk > 0 ? fmtCpk(f.cpk) : "—"} · perf ${f.perf > 0 ? fmtPct(f.perf) : "—"}`,
+          insights: list,
+        };
+      });
+    return out;
+  }, [filtered]);
 
   return (
     <>
