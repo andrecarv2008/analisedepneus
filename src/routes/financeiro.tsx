@@ -7,7 +7,7 @@ import { InsightsByFilial, type FilialInsights, type Insight } from "@/component
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
-import { fmtCpk, fmtMoneyK, fmtPct } from "@/lib/format";
+import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { TrendingUp, TrendingDown, Wallet, AlertTriangle } from "lucide-react";
 
