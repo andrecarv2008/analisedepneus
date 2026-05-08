@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { cpkAcumulado, calcularDesgasteIrregular, fabricante, isRecap, statusNorm } from "@/lib/tires";
+import { cpkAcumulado, calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { PageHeader } from "@/components/PageHeader";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { InfoCard } from "@/components/InfoCard";
@@ -53,7 +53,7 @@ function Dashboard() {
 
   const data = useMemo(() => {
     const total = filtered.length;
-    let custoEnc = 0, kmEnc = 0, kmProjEnc = 0, pneusComEnc = 0;
+    let custoEnc = 0, kmEnc = 0, kmProjEnc = 0, pneusComEnc = 0, ciclosEnc = 0;
     const filiais = new Set<string>();
     const porVida = new Map<number, VidaAgg>();
     const ensure = (v: number) => {
@@ -66,15 +66,12 @@ function Dashboard() {
       const v = t.v || 1;
       const agg = ensure(v);
       agg.pneus += 1;
-      const closed = Math.max(0, v - 1);
-      let c = 0, k = 0, kp = 0;
-      for (let i = 0; i < closed; i++) {
-        const ci = t.cv[i] || 0, ki = t.km[i] || 0, kpi = t.kpv[i] || 0;
-        if (ci > 0 && ki > 0) { c += ci; k += ki; }
-        kp += kpi;
+      const s = encerradoStats(t);
+      agg.custo += s.custo; agg.km += s.kmReal; agg.kmProj += s.kmProj;
+      if (s.ciclos > 0) {
+        custoEnc += s.custo; kmEnc += s.kmReal; kmProjEnc += s.kmProj;
+        pneusComEnc += 1; ciclosEnc += s.ciclos;
       }
-      agg.custo += c; agg.km += k; agg.kmProj += kp;
-      if (closed > 0 && k > 0) { custoEnc += c; kmEnc += k; kmProjEnc += kp; pneusComEnc += 1; }
     }
     for (const a of porVida.values()) a.cpk = a.km > 0 ? a.custo / a.km : 0;
     const cpkGlobal = kmEnc > 0 ? custoEnc / kmEnc : 0;
@@ -97,7 +94,7 @@ function Dashboard() {
     const filData = [...filMap.entries()].map(([k, v]) => ({ name: k.length > 14 ? k.slice(0, 14) + "…" : k, value: v, pct: (v / Math.max(total, 1)) * 100 }))
       .sort((a, b) => b.value - a.value).slice(0, 10);
 
-    return { total, custoEnc, kmEnc, kmProjEnc, pneusComEnc, cpkGlobal, perfGlobal, vidas, filiais: filiais.size,
+    return { total, custoEnc, kmEnc, kmProjEnc, pneusComEnc, ciclosEnc, cpkGlobal, perfGlobal, vidas, filiais: filiais.size,
       ativos, recap, desg, criticos, fabData, filData };
   }, [filtered]);
 
