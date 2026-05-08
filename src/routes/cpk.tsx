@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { encerradoStats } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
+import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
@@ -53,15 +53,55 @@ function Page() {
     return { rows, validos, cpkMedio, cpkProjMed, perfKm, sumCusto, sumKmReal, sumKmProj, totalCiclos, filiais, piores, melhores, porVida };
   }, [filtered]);
 
-  const insights = useMemo<Insight[]>(() => {
-    const out: Insight[] = [];
-    if (data.filiais[0]) out.push({ icon: Trophy, severity: "success", title: "Melhor filial em CPK", desc: `${data.filiais[0].fi} com CPK de ${fmtCpk(data.filiais[0].cpk)}.` });
-    const pior = data.filiais[data.filiais.length - 1];
-    if (pior && pior !== data.filiais[0]) out.push({ icon: AlertTriangle, severity: "destructive", title: "Filial crítica", desc: `${pior.fi} com CPK de ${fmtCpk(pior.cpk)} — ${fmtPct(((pior.cpk - data.filiais[0].cpk) / data.filiais[0].cpk) * 100)} acima da melhor.` });
-    if (data.cpkMedio < data.cpkProjMed) out.push({ icon: Target, severity: "success", title: "CPK abaixo do projetado", desc: `Média real ${fmtCpk(data.cpkMedio)} vs projetado ${fmtCpk(data.cpkProjMed)} — operação eficiente.` });
-    else out.push({ icon: TrendingUp, severity: "warning", title: "CPK acima do projetado", desc: `Média real ${fmtCpk(data.cpkMedio)} excede projetado ${fmtCpk(data.cpkProjMed)}.` });
-    return out;
-  }, [data]);
+  const groups = useMemo<FilialInsights[]>(() => {
+    type Acc = { c: number; k: number; kp: number; pneus: number; ciclos: number };
+    const m = new Map<string, Acc>();
+    for (const r of data.rows) {
+      const e = m.get(r.t.fi) || { c: 0, k: 0, kp: 0, pneus: 0, ciclos: 0 };
+      e.c += r.custo; e.k += r.km; e.kp += r.kmProj; e.pneus += 1; e.ciclos += r.ciclos;
+      m.set(r.t.fi, e);
+    }
+    const arr = [...m.entries()].map(([fi, e]) => ({
+      fi, ...e,
+      cpk: e.k > 0 ? e.c / e.k : 0,
+      cpkProj: e.kp > 0 ? e.c / e.kp : 0,
+      perf: e.kp > 0 ? (e.k / e.kp) * 100 : 0,
+    }));
+    const validas = arr.filter((f) => f.ciclos > 0);
+    const melhor = validas.length ? validas.reduce((a, b) => (a.cpk < b.cpk ? a : b)) : null;
+    return arr.sort((a, b) => b.pneus - a.pneus).slice(0, 8).map((f) => {
+      const list: Insight[] = [];
+      if (f.ciclos === 0) {
+        list.push({ icon: AlertTriangle, severity: "info", title: "Sem ciclos encerrados", desc: `${fmtNum(f.pneus)} pneus, mas nenhuma vida fechou ainda.` });
+      } else {
+        if (melhor && f.fi === melhor.fi) {
+          list.push({ icon: Trophy, severity: "success", title: "Melhor CPK da operação", desc: `${fmtCpk(f.cpk)} sobre ${fmtNum(f.ciclos)} ciclos encerrados.` });
+        } else if (melhor) {
+          const gap = ((f.cpk - melhor.cpk) / melhor.cpk) * 100;
+          list.push({
+            icon: gap > 20 ? AlertTriangle : Target,
+            severity: gap > 20 ? "destructive" : gap > 8 ? "warning" : "info",
+            title: "CPK vs melhor filial",
+            desc: `${fmtCpk(f.cpk)} — ${fmtPct(gap)} em relação a ${melhor.fi} (${fmtCpk(melhor.cpk)}).`,
+          });
+        }
+        const diff = ((f.cpk - f.cpkProj) / Math.max(f.cpkProj, 0.0001)) * 100;
+        if (f.cpk <= f.cpkProj) list.push({ icon: TrendingUp, severity: "success", title: "CPK abaixo do projetado", desc: `Real ${fmtCpk(f.cpk)} × projetado ${fmtCpk(f.cpkProj)} (${fmtPct(diff)}) — operação eficiente.` });
+        else list.push({ icon: TrendingUp, severity: "warning", title: "CPK acima do projetado", desc: `Real ${fmtCpk(f.cpk)} × projetado ${fmtCpk(f.cpkProj)} (+${fmtPct(diff)}).` });
+        list.push({
+          icon: f.perf >= 95 ? Target : AlertTriangle,
+          severity: f.perf >= 95 ? "success" : f.perf >= 70 ? "warning" : "destructive",
+          title: "Performance KM",
+          desc: `${fmtPct(f.perf)} — ${fmtNum(f.k)} km reais sobre ${fmtNum(f.kp)} km projetados (encerrados).`,
+        });
+      }
+      return {
+        filial: f.fi,
+        metric: `${fmtNum(f.pneus)} pneus · ${fmtNum(f.ciclos)} ciclos · CPK ${f.cpk > 0 ? fmtCpk(f.cpk) : "—"}`,
+        insights: list,
+      };
+    });
+  }, [data.rows]);
 
   return (
     <>
@@ -188,7 +228,7 @@ function Page() {
         </ChartCard>
       </div>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
