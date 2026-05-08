@@ -228,7 +228,7 @@ function Page() {
         </ChartCard>
       </div>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
