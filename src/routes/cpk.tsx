@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { cpkAcumulado, cpkProjetado } from "@/lib/tires";
+import { encerradoStats } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
 import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
@@ -18,24 +18,24 @@ function Page() {
   const { filtered } = useFilters();
   const data = useMemo(() => {
     const rows = filtered.map((t) => {
-      const a = cpkAcumulado(t);
-      const proj = cpkProjetado(t);
-      return { t, real: a.cpk, custo: a.custo, km: a.km, proj, custoTotal: t.ct, kmProj: t.kp, diff: proj > 0 ? ((a.cpk - proj) / proj) * 100 : 0 };
+      const s = encerradoStats(t);
+      const real = s.kmReal > 0 ? s.custo / s.kmReal : 0;
+      const proj = s.kmProj > 0 ? s.custo / s.kmProj : 0;
+      return { t, real, proj, custo: s.custo, km: s.kmReal, kmProj: s.kmProj, ciclos: s.ciclos };
     });
-    const validos = rows.filter((r) => r.real > 0);
+    const validos = rows.filter((r) => r.ciclos > 0 && r.km > 0);
 
-    // Médias ponderadas (Σcusto / Σkm) — refletem a realidade da operação
-    const sumCustoEnc = validos.reduce((s, r) => s + r.custo, 0);
-    const sumKmEnc = validos.reduce((s, r) => s + r.km, 0);
-    const cpkMedio = sumKmEnc > 0 ? sumCustoEnc / sumKmEnc : 0;
-
-    const projRows = rows.filter((r) => r.proj > 0);
-    const sumCustoProj = projRows.reduce((s, r) => s + r.custoTotal, 0);
-    const sumKmProj = projRows.reduce((s, r) => s + r.kmProj, 0);
-    const cpkProjMed = sumKmProj > 0 ? sumCustoProj / sumKmProj : 0;
+    // Médias ponderadas — mesma base (ciclos encerrados) para real e projetado
+    const sumCusto = validos.reduce((s, r) => s + r.custo, 0);
+    const sumKmReal = validos.reduce((s, r) => s + r.km, 0);
+    const sumKmProj = validos.reduce((s, r) => s + r.kmProj, 0);
+    const totalCiclos = validos.reduce((s, r) => s + r.ciclos, 0);
+    const cpkMedio = sumKmReal > 0 ? sumCusto / sumKmReal : 0;
+    const cpkProjMed = sumKmProj > 0 ? sumCusto / sumKmProj : 0;
+    const perfKm = sumKmProj > 0 ? (sumKmReal / sumKmProj) * 100 : 0;
 
     const filialMap = new Map<string, { c: number; k: number }>();
-    for (const r of rows) {
+    for (const r of validos) {
       const e = filialMap.get(r.t.fi) || { c: 0, k: 0 };
       e.c += r.custo; e.k += r.km;
       filialMap.set(r.t.fi, e);
@@ -50,7 +50,7 @@ function Page() {
       let c=0,k=0; for(const r of arr){c+=r.custo;k+=r.km;}
       return { vida: `${v}ª`, cpk: k>0?c/k:0, custo: c };
     });
-    return { rows, cpkMedio, cpkProjMed, filiais, piores, melhores, porVida };
+    return { rows, validos, cpkMedio, cpkProjMed, perfKm, sumCusto, sumKmReal, sumKmProj, totalCiclos, filiais, piores, melhores, porVida };
   }, [filtered]);
 
   const insights = useMemo<Insight[]>(() => {
