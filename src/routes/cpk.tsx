@@ -68,46 +68,59 @@ function Page() {
       <PageHeader title="Análise de CPK" subtitle="Custo por KM rodado — apenas ciclos encerrados (vidas anteriores à atual)." />
       <FilterBar />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <InfoCard label="CPK real médio" value={fmtCpk(data.cpkMedio)} tone="var(--success)"
           formula={{
-            description: "Custo médio por quilômetro considerando apenas ciclos já encerrados — ponderado pela operação real.",
+            description: "Custo médio por quilômetro real considerando apenas ciclos encerrados — média ponderada pela operação.",
             formula: "Σ custo enc.  ÷  Σ km real enc.",
             steps: [
-              "Para cada pneu, somamos custo e KM das vidas já fechadas (vidas anteriores à atual).",
-              "Somamos esses valores em toda a frota filtrada.",
-              "Dividimos custo total acumulado pelo KM total acumulado.",
+              "Para cada pneu, somamos custo, km real e km projetado das vidas i < vida atual.",
+              "Ignoramos vidas com km real ou km projetado vazios (0).",
+              "Dividimos o custo total acumulado pelo KM real total acumulado.",
             ],
-            note: "Usamos média ponderada (e não média aritmética por pneu) para evitar distorções de pneus com pouco KM.",
+            note: "Mesma base usada na Performance KM — comparação justa entre real e projetado.",
           }} />
         <InfoCard label="CPK projetado médio" value={fmtCpk(data.cpkProjMed)} tone="var(--warning)"
           formula={{
-            description: "CPK que a operação alcançaria se cada pneu rodasse seu KM projetado total.",
-            formula: "Σ custo total  ÷  Σ km projetado",
+            description: "CPK que esses mesmos ciclos encerrados teriam alcançado se rodassem o KM projetado.",
+            formula: "Σ custo enc.  ÷  Σ km projetado enc.",
             steps: [
-              "Somamos o custo total (ct) de todos os pneus com KM projetado.",
-              "Somamos o KM projetado total (kp) desses mesmos pneus.",
-              "Dividimos custo projetado por KM projetado.",
+              "Mesmo numerador do CPK real (custo das vidas encerradas).",
+              "No denominador usamos kpv[i] (projeção da mesma vida i encerrada).",
+              "Não usamos kp total nem ct total — apenas a base encerrada.",
             ],
-            note: "Serve como referência teórica do potencial de eficiência.",
+            note: "Mantém pneus, vidas e custos idênticos ao CPK real — a diferença vem só do KM.",
           }} />
         <InfoCard label="Diferença real × projetado" value={fmtPct(((data.cpkMedio-data.cpkProjMed)/Math.max(data.cpkProjMed,0.0001))*100)}
           tone={data.cpkMedio <= data.cpkProjMed ? "var(--success)" : "var(--destructive)"}
           formula={{
-            description: "Quanto o CPK real está acima ou abaixo do CPK projetado.",
+            description: "Diferença percentual entre CPK real e CPK projetado, ambos sobre a mesma base encerrada.",
             formula: "(CPK real − CPK projetado) ÷ CPK projetado × 100",
             steps: [
-              "Calculamos a diferença entre os dois CPKs ponderados.",
-              "Dividimos pela referência (projetado) e convertemos em %.",
+              "Calculamos os dois CPKs com mesmo numerador (custo encerrado).",
+              "A diferença reflete exatamente o gap entre KM real e KM projetado.",
             ],
-            note: "Negativo = melhor que projetado. Positivo = acima do esperado.",
+            note: "Negativo = rodou mais que o projetado (melhor). Positivo = rodou menos (pior).",
           }} />
-        <InfoCard label="Pneus c/ ciclo encerrado" value={fmtNum(data.rows.filter(r=>r.real>0).length)}
+        <InfoCard label="Performance KM" value={fmtPct(data.perfKm)}
+          tone={data.perfKm >= 95 ? "var(--success)" : data.perfKm >= 70 ? "var(--warning)" : "var(--destructive)"}
           formula={{
-            description: "Total de pneus que já fecharam pelo menos uma vida (estão na 2ª vida ou maior).",
-            formula: "count(pneus onde vida ≥ 2)",
-            note: "Apenas estes entram nos cálculos de CPK real médio.",
+            description: "Aproveitamento do KM projetado nos ciclos encerrados.",
+            formula: "(Σ KM real enc. ÷ Σ KM projetado enc.) × 100",
+            note: "Mesmo cálculo da Visão Geral — base 100% encerrada, sem vidas ativas.",
           }} />
+      </div>
+
+      {/* Auditoria */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <InfoCard label="Pneus considerados" value={fmtNum(data.validos.length)} tone="var(--info)"
+          formula="Pneus com pelo menos 1 ciclo encerrado válido (km real e projetado preenchidos)." />
+        <InfoCard label="Ciclos encerrados" value={fmtNum(data.totalCiclos)}
+          formula="Soma de vidas i < vida atual com km[i] > 0 e kpv[i] > 0 em todos os pneus." />
+        <InfoCard label="KM real utilizado" value={fmtNum(data.sumKmReal)} tone="var(--success)"
+          formula="Σ km[i] das vidas encerradas válidas." />
+        <InfoCard label="KM projetado utilizado" value={fmtNum(data.sumKmProj)} tone="var(--warning)"
+          formula="Σ kpv[i] das mesmas vidas encerradas usadas no KM real." />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
