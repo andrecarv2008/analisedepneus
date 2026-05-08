@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { isRecap, fabricante } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
+import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
@@ -38,13 +38,26 @@ function Page() {
   const economia = aptos.length * (PRECO_NOVO - PRECO_RECAP);
   const criticos = aptos.filter(t=>(t.mm??99)<=2).length;
 
-  const insights = useMemo<Insight[]>(() => {
-    const out: Insight[] = [];
-    out.push({ icon: Zap, severity: "success", title: "Economia da recapagem", desc: `Recapando ${aptos.length} pneus, a frota deixa de gastar ${fmtMoneyK(economia)} em pneus novos.` });
-    if (criticos > 0) out.push({ icon: AlertCircle, severity: "destructive", title: "Pneus críticos", desc: `${criticos} pneus com sulco ≤ 2 mm — risco operacional. Recapar imediatamente ou retirar de uso.` });
-    if (porFilial[0]) out.push({ icon: DollarSign, severity: "info", title: "Filial prioritária", desc: `${porFilial[0].fi} concentra ${porFilial[0].n} pneus aptos — agendar lote de recapagem.` });
-    return out;
-  }, [aptos, economia, criticos, porFilial]);
+  const groups = useMemo<FilialInsights[]>(() => {
+    type Acc = { aptos: number; criticos: number; soma: number };
+    const m = new Map<string, Acc>();
+    for (const t of aptos) {
+      const e = m.get(t.fi) || { aptos: 0, criticos: 0, soma: 0 };
+      e.aptos += 1;
+      if ((t.mm ?? 99) <= 2) e.criticos += 1;
+      e.soma += t.mm ?? 0;
+      m.set(t.fi, e);
+    }
+    return [...m.entries()].sort((a, b) => b[1].aptos - a[1].aptos).map(([fi, e]) => {
+      const economia = e.aptos * (PRECO_NOVO - PRECO_RECAP);
+      const custo = e.aptos * PRECO_RECAP;
+      const insights: Insight[] = [];
+      insights.push({ icon: Zap, severity: "success", title: "Economia da recapagem", desc: `Recapando ${fmtNum(e.aptos)} pneus, deixa de gastar ${fmtMoneyK(economia)} em pneus novos.` });
+      insights.push({ icon: DollarSign, severity: "info", title: "Investimento estimado", desc: `${fmtMoneyK(custo)} em recapagens (${fmtNum(e.aptos)} × R$ ${PRECO_RECAP}).` });
+      if (e.criticos > 0) insights.push({ icon: AlertCircle, severity: "destructive", title: "Pneus críticos (≤2mm)", desc: `${fmtNum(e.criticos)} pneus em risco — recapar imediatamente ou retirar de uso.` });
+      return { filial: fi, metric: `${fmtNum(e.aptos)} aptos · ${fmtNum(e.criticos)} críticos · economia ${fmtMoneyK(economia)}`, insights };
+    });
+  }, [aptos]);
 
   return (
     <>
@@ -124,7 +137,7 @@ function Page() {
         </div>
       </ChartCard>
 
-      <InsightsBlock insights={insights} />
+      <InsightsByFilial groups={groups} />
     </>
   );
 }
