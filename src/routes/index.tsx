@@ -8,7 +8,7 @@ import { InfoCard } from "@/components/InfoCard";
 import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
 import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
-  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ComposedChart, Line,
 } from "recharts";
 import { AlertTriangle, Target, Zap, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
 
@@ -36,12 +36,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function FlatCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl p-5 border ${className}`}
-      style={{ background: "oklch(0.21 0.02 255 / 0.6)", borderColor: "oklch(1 0 0 / 0.06)" }}>
-      {children}
-    </div>
-  );
+  return <div className={`chart-card p-5 ${className}`}>{children}</div>;
 }
 
 const colorByCpk = (c: number) => (!c ? "var(--muted-foreground)" : c < 0.06 ? "var(--success)" : c < 0.07 ? "var(--warning)" : "var(--destructive)");
