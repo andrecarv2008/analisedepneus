@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-// state used below
 import { useFilters } from "@/lib/filters-context";
 import { cpkAcumulado, calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { PageHeader } from "@/components/PageHeader";
@@ -11,7 +10,7 @@ import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from "recharts";
-import { ChevronDown, AlertTriangle, Target, Zap, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
+import { AlertTriangle, Target, Zap, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
