@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+// state used below
 import { useFilters } from "@/lib/filters-context";
 import { cpkAcumulado, calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { PageHeader } from "@/components/PageHeader";
