@@ -10,7 +10,7 @@ import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from "recharts";
-import { ChevronDown, AlertTriangle, Target, Zap, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
+import { AlertTriangle, Target, Zap, TrendingUp, TrendingDown, Lightbulb } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -219,24 +219,6 @@ function Dashboard() {
         </div>
       </Section>
 
-      {/* Auditoria — base de cálculo */}
-      <Section title="Auditoria — base de cálculo (ciclos encerrados)">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <InfoCard label="Pneus considerados" value={fmtNum(data.pneusComEnc)} tone="var(--info)"
-            sub={`de ${fmtNum(data.total)} no filtro`}
-            formula="Pneus com ao menos 1 ciclo encerrado válido (km real e km projetado preenchidos)." />
-          <InfoCard label="Ciclos encerrados" value={fmtNum(data.ciclosEnc)}
-            sub="vidas fechadas válidas"
-            formula="Soma das vidas anteriores à vida atual de cada pneu, contando apenas as que têm km real > 0 e km projetado > 0." />
-          <InfoCard label="KM real utilizado" value={fmtNum(data.kmEnc)} tone="var(--success)"
-            sub="km rodados encerrados"
-            formula="Σ km[i] das vidas i < vida atual, ignorando campos vazios." />
-          <InfoCard label="KM projetado utilizado" value={fmtNum(data.kmProjEnc)} tone="var(--warning)"
-            sub="projeção das mesmas vidas"
-            formula="Σ kpv[i] das mesmas vidas encerradas usadas no KM real (mesma base, mesmos pneus)." />
-        </div>
-      </Section>
-
       {/* Distribuição por vida atual (clicável) */}
       <Section title="Distribuição por vida atual">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -267,41 +249,6 @@ function Dashboard() {
           })}
         </div>
       </Section>
-
-      {/* Detalhe da vida selecionada */}
-      {sel && (
-        <FlatCard className="mb-6">
-          <div className="font-display text-lg font-bold mb-5">
-            {sel.v}ª Vida — {fmtNum(sel.pneus)} pneus{sel.v > 1 ? " com ciclos encerrados" : ""}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <InfoCard label="CPK acumulado" value={sel.cpk > 0 ? fmtCpk(sel.cpk) : "—"} tone={colorByCpk(sel.cpk)}
-              formula={`Σ custo das vidas 1..${sel.v - 1} ÷ Σ km das vidas 1..${sel.v - 1}.\nApenas pneus que estão na ${sel.v}ª vida atual.`} />
-            <InfoCard label="Custo enc." value={fmtMoneyK(sel.custo)} formula={`Soma de cv[0..${sel.v - 2}] dos pneus na ${sel.v}ª vida.`} />
-            <InfoCard label="KM real enc." value={fmtMoneyK(sel.km).replace("R$ ", "")} tone="var(--info)"
-              formula={`Soma de km[0..${sel.v - 2}] dos pneus na ${sel.v}ª vida.`} />
-            <InfoCard label="KM projetado" value={fmtMoneyK(sel.kmProj).replace("R$ ", "")}
-              formula={`Soma de kpv[0..${sel.v - 2}] dos pneus na ${sel.v}ª vida.`} />
-          </div>
-
-          <div className="my-5 flex items-center justify-center">
-            <div className="size-9 rounded-full border flex items-center justify-center" style={{ borderColor: "oklch(1 0 0 / 0.1)" }}>
-              <ChevronDown className="size-4 text-muted-foreground" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <InfoCard label="Performance" value={sel.kmProj > 0 ? fmtPct((sel.km / sel.kmProj) * 100) : "—"}
-              tone={colorByPerf(sel.kmProj > 0 ? (sel.km / sel.kmProj) * 100 : 0)}
-              formula="(KM real enc. ÷ KM projetado) × 100." />
-            <InfoCard label="Diferença KM" value={`${fmtMoneyK(sel.km - sel.kmProj).replace("R$ ", "")} km`}
-              tone={sel.km - sel.kmProj >= 0 ? "var(--success)" : "var(--destructive)"}
-              formula="KM real encerrado − KM projetado encerrado." />
-            <InfoCard label="Total pneus" value={fmtNum(sel.pneus)} formula={`Pneus cuja vida atual = ${sel.v}.`} />
-            <InfoCard label="Ciclo atual" value={`${sel.v}º ciclo`} formula="Vida em que o pneu se encontra hoje." />
-          </div>
-        </FlatCard>
-      )}
 
       {/* Porcentagens (antes era aba separada) */}
       <Section title="Porcentagens da frota">
