@@ -225,24 +225,94 @@ function Dashboard() {
               <button
                 key={v.v}
                 onClick={() => setSelVida(v.v)}
-                className="text-left rounded-xl p-4 border transition-all hover:translate-y-[-1px]"
+                className="text-left rounded-xl p-4 border bg-card transition-all hover:-translate-y-[1px] hover:shadow-md"
                 style={{
-                  background: isSel ? "oklch(0.24 0.04 255 / 0.7)" : "oklch(0.21 0.02 255 / 0.5)",
-                  borderColor: isSel ? "var(--primary)" : "oklch(1 0 0 / 0.06)",
-                  boxShadow: isSel ? "0 0 0 1px var(--primary), 0 8px 24px -12px var(--primary)" : undefined,
+                  borderColor: isSel ? "var(--primary)" : "var(--border)",
+                  boxShadow: isSel ? "0 0 0 1px var(--primary), 0 8px 24px -14px var(--primary)" : undefined,
                 }}
               >
                 <div className="text-xs text-muted-foreground mb-2">{v.v}ª vida</div>
                 <div className="font-display text-2xl font-bold">{fmtPct(pct)}</div>
                 <div className="text-xs text-muted-foreground mt-1">{fmtNum(v.pneus)} pneus</div>
                 <div className="mt-3 text-sm font-medium" style={{ color: cpkColor }}>{v.cpk > 0 ? fmtCpk(v.cpk) : "—"}</div>
-                <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "oklch(1 0 0 / 0.06)" }}>
+                <div className="mt-3 h-1.5 rounded-full overflow-hidden bg-muted">
                   <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct * 2)}%`, background: cpkColor }} />
                 </div>
               </button>
             );
           })}
         </div>
+      </Section>
+
+      {/* KM Real x KM Projetado — apenas ciclos encerrados */}
+      <Section title="KM Real × KM Projetado — ciclos encerrados">
+        <FlatCard>
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <div>
+              <div className="text-sm font-display font-semibold">Comparativo por vida encerrada</div>
+              <div className="text-xs text-muted-foreground">Apenas vidas i &lt; vida atual com km real e projetado preenchidos.</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Performance global</div>
+              <div className="font-display text-lg font-bold" style={{ color: colorByPerf(data.perfGlobal) }}>{fmtPct(data.perfGlobal)}</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={data.vidas.map((v) => ({
+              name: `${v.v}ª vida`,
+              kmReal: v.km,
+              kmProj: v.kmProj,
+              perf: v.kmProj > 0 ? (v.km / v.kmProj) * 100 : 0,
+              pneus: v.pneus,
+              custo: v.custo,
+              cpk: v.cpk,
+              gap: v.km - v.kmProj,
+            }))} margin={{ top: 16, right: 16, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} />
+              <YAxis yAxisId="km" stroke="var(--muted-foreground)" fontSize={11}
+                tickFormatter={(v) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v/1000)}k` : `${v}`} />
+              <YAxis yAxisId="perf" orientation="right" stroke="var(--muted-foreground)" fontSize={11} domain={[0, 'dataMax + 20']}
+                tickFormatter={(v) => `${Math.round(v)}%`} />
+              <Tooltip
+                cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const d: any = payload[0].payload;
+                  const gapPct = d.kmProj > 0 ? ((d.kmReal - d.kmProj) / d.kmProj) * 100 : 0;
+                  return (
+                    <div className="rounded-lg border bg-popover shadow-lg p-3 min-w-[240px]" style={{ borderColor: "var(--border)" }}>
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Auditoria</div>
+                      <div className="text-sm font-semibold text-foreground mb-2">{label}</div>
+                      <dl className="space-y-1 text-xs">
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium">{fmtNum(d.pneus)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM real</dt><dd className="font-medium" style={{ color: "var(--chart-1)" }}>{fmtNum(d.kmReal)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM projetado</dt><dd className="font-medium" style={{ color: "var(--chart-3)" }}>{fmtNum(d.kmProj)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Δ (real − proj.)</dt><dd className="font-medium" style={{ color: d.gap >= 0 ? "var(--success)" : "var(--destructive)" }}>{(d.gap >= 0 ? "+" : "")}{fmtNum(d.gap)} km</dd></div>
+                        <div className="flex justify-between gap-4 border-t pt-1 mt-1" style={{ borderColor: "var(--border)" }}>
+                          <dt className="text-muted-foreground">Performance</dt>
+                          <dd className="font-semibold" style={{ color: colorByPerf(d.perf) }}>{fmtPct(d.perf)} <span className="text-muted-foreground font-normal">({gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%)</span></dd>
+                        </div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Custo enc.</dt><dd className="font-medium">{fmtMoneyK(d.custo)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">CPK</dt><dd className="font-medium">{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
+                      </dl>
+                    </div>
+                  );
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+              <Bar yAxisId="km" dataKey="kmReal" name="KM real" fill="var(--chart-1)" radius={[6, 6, 0, 0]} barSize={28} />
+              <Bar yAxisId="km" dataKey="kmProj" name="KM projetado" fill="var(--chart-3)" radius={[6, 6, 0, 0]} barSize={28} />
+              <Line yAxisId="perf" type="monotone" dataKey="perf" name="Performance %" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--accent)" }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Pneus c/ enc.</div><div className="font-semibold">{fmtNum(data.pneusComEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Ciclos enc.</div><div className="font-semibold">{fmtNum(data.ciclosEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM real</div><div className="font-semibold" style={{ color: "var(--chart-1)" }}>{fmtNum(data.kmEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM projetado</div><div className="font-semibold" style={{ color: "var(--chart-3)" }}>{fmtNum(data.kmProjEnc)}</div></div>
+          </div>
+        </FlatCard>
       </Section>
 
       {/* Porcentagens (antes era aba separada) */}
