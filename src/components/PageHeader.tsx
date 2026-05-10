@@ -1,5 +1,3 @@
-import { ThemeToggle } from "@/components/ThemeToggle";
-
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="mb-6 animate-fade-up flex items-start justify-between gap-4">
@@ -12,7 +10,6 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle?: stri
         </div>
         {subtitle && <p className="text-sm text-muted-foreground ml-4">{subtitle}</p>}
       </div>
-      <ThemeToggle />
     </div>
   );
 }
