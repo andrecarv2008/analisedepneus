@@ -126,13 +126,19 @@ html, body { background: var(--background); color: var(--foreground); }
   border: 1px solid var(--border);
   box-shadow: var(--shadow-elegant);
 }
-.dark .glass { border-color: oklch(1 0 0 / 0.06); }
 .glow { box-shadow: var(--shadow-glow); }
 .text-gradient {
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+.chart-card {
+  background: var(--chart-bg);
+  border: 1px solid var(--chart-bg-border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-elegant);
 }
 
 .kpi-pulse::before {
