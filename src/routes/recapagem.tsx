@@ -3,13 +3,13 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { isRecap, fabricante } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { fmtMoneyK, fmtNum } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Zap, AlertCircle, DollarSign } from "lucide-react";
+import { Zap, AlertCircle, DollarSign, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const PRECO_RECAP = 800;
