@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { cpkAcumulado, isRecap, statusNorm } from "@/lib/tires";
+import { encerradoStats, isRecap, statusNorm } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
-import { TrendingUp, TrendingDown, Wallet, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, AlertTriangle, Target } from "lucide-react";
 
 export const Route = createFileRoute("/financeiro")({ component: Page,
   head: () => ({ meta: [{ title: "Financeiro · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Análise financeira da operação de pneus." }]}) });
