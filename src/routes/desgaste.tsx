@@ -15,40 +15,43 @@ export const Route = createFileRoute("/desgaste")({ component: Page,
   head: () => ({ meta: [{ title: "Desgaste Irregular · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Análise de desgaste irregular dos pneus dianteiros." }]}) });
 
 function Page() {
-  const { filtered } = useFilters();
+  const { filtered, filters } = useFilters();
   const list = useMemo(() => calcularDesgasteIrregular(filtered), [filtered]);
-  const sevAlta = list.filter(d=>d.severidade==="alta").length;
-  const sevMed = list.filter(d=>d.severidade==="média").length;
+  const sevAlta = list.filter((d) => d.severidade === "alta").length;
+  const sevMed = list.filter((d) => d.severidade === "média").length;
+  const sevBaixa = list.filter((d) => d.severidade === "baixa").length;
 
-  const sevColor = (s: string) => s==="alta" ? "var(--destructive)" : s==="média" ? "var(--warning)" : "var(--info)";
+  const sevColor = (s: string) => (s === "alta" ? "var(--destructive)" : s === "média" ? "var(--warning)" : "var(--info)");
 
-  const groups = useMemo<FilialInsights[]>(() => {
-    type Acc = { alta: number; med: number; baixa: number; total: number; maxDiff: number };
-    const m = new Map<string, Acc>();
-    for (const d of list) {
-      const e = m.get(d.fi) || { alta: 0, med: 0, baixa: 0, total: 0, maxDiff: 0 };
-      e.total += 1;
-      if (d.severidade === "alta") e.alta += 1;
-      else if (d.severidade === "média") e.med += 1;
-      else e.baixa += 1;
-      if (d.diff > e.maxDiff) e.maxDiff = d.diff;
-      m.set(d.fi, e);
+  const insights = useMemo<Insight[]>(() => {
+    const out: Insight[] = [];
+    if (!list.length) {
+      out.push({ icon: Target, severity: "success", title: "Sem desgaste irregular", desc: "Nenhum par dianteiro com Δ ≥ 1,6 mm no escopo filtrado." });
+      return out;
     }
-    return [...m.entries()].sort((a, b) => b[1].total - a[1].total).map(([fi, e]) => {
-      const insights: Insight[] = [];
-      insights.push({
-        icon: AlertTriangle,
-        severity: e.alta > 0 ? "destructive" : e.med > 0 ? "warning" : "info",
-        title: "Ocorrências detectadas",
-        desc: `${fmtNum(e.total)} pares dianteiros com Δ ≥ 1,6mm — maior diferença: ${e.maxDiff.toFixed(2)}mm.`,
-      });
-      if (e.alta > 0) insights.push({ icon: AlertOctagon, severity: "destructive", title: "Casos críticos (Δ ≥ 3mm)", desc: `${fmtNum(e.alta)} pares — risco de blow-out e perda prematura. Alinhamento imediato.` });
-      const acao = e.alta + e.med;
-      if (acao > 0) insights.push({ icon: Wrench, severity: "info", title: "Plano de ação", desc: `${fmtNum(acao)} veículos requerem alinhamento; ${fmtNum(e.baixa)} apenas rodízio.` });
-      else insights.push({ icon: Target, severity: "success", title: "Sem severidade alta/média", desc: "Apenas casos leves — rodízio resolve." });
-      return { filial: fi, metric: `${fmtNum(e.total)} pares · alta ${e.alta} · média ${e.med} · baixa ${e.baixa}`, insights };
+    const maxDiff = list.reduce((m, d) => Math.max(m, d.diff), 0);
+    out.push({
+      icon: AlertTriangle,
+      severity: sevAlta > 0 ? "destructive" : sevMed > 0 ? "warning" : "info",
+      title: "Ocorrências detectadas",
+      desc: `${fmtNum(list.length)} pares dianteiros — maior Δ ${maxDiff.toFixed(2)} mm.`,
     });
-  }, [list]);
+    if (sevAlta > 0) out.push({ icon: AlertOctagon, severity: "destructive", title: "Casos críticos (Δ ≥ 3 mm)", desc: `${fmtNum(sevAlta)} pares — alinhamento imediato.` });
+    if (sevMed > 0) out.push({ icon: Wrench, severity: "warning", title: "Severidade média", desc: `${fmtNum(sevMed)} pares com Δ entre 2,2 e 3 mm — revisão programada.` });
+    if (sevBaixa > 0) out.push({ icon: Wrench, severity: "info", title: "Casos leves", desc: `${fmtNum(sevBaixa)} pares — apenas rodízio.` });
+
+    if (filters.filial === "all") {
+      const porFil = new Map<string, number>();
+      for (const d of list) porFil.set(d.fi, (porFil.get(d.fi) || 0) + 1);
+      const ranked = [...porFil.entries()].sort((a, b) => b[1] - a[1]);
+      if (ranked.length > 1) {
+        out.push({ icon: Target, severity: "primary", title: "Filiais mais afetadas", desc: `${ranked.slice(0, 3).map(([fi, n]) => `${fi} (${fmtNum(n)})`).join(" · ")}.` });
+      }
+    }
+    return out;
+  }, [list, filters.filial, sevAlta, sevMed, sevBaixa]);
+
+  const scope = filters.filial !== "all" ? { label: filters.filial, metric: `${fmtNum(list.length)} pares · alta ${sevAlta} · média ${sevMed}` } : undefined;
 
   return (
     <>
