@@ -294,7 +294,7 @@ function Dashboard() {
               <div className="font-display text-lg font-bold" style={{ color: colorByPerf(data.perfGlobal) }}>{fmtPct(data.perfGlobal)}</div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={340}>
             <ComposedChart data={data.vidas.map((v) => ({
               name: `${v.v}ª vida`,
               kmReal: v.km,
@@ -305,11 +305,21 @@ function Dashboard() {
               cpk: v.cpk,
               gap: v.km - v.kmProj,
             }))} margin={{ top: 16, right: 16, left: 8, bottom: 8 }}>
+              <defs>
+                <linearGradient id="gReal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id="gProj" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.45} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} />
-              <YAxis yAxisId="km" stroke="var(--muted-foreground)" fontSize={11}
+              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+              <YAxis yAxisId="km" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={(v) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v/1000)}k` : `${v}`} />
-              <YAxis yAxisId="perf" orientation="right" stroke="var(--muted-foreground)" fontSize={11} domain={[0, 'dataMax + 20']}
+              <YAxis yAxisId="perf" orientation="right" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 'dataMax + 20']}
                 tickFormatter={(v) => `${Math.round(v)}%`} />
               <Tooltip
                 cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
@@ -317,37 +327,55 @@ function Dashboard() {
                   if (!active || !payload?.length) return null;
                   const d: any = payload[0].payload;
                   const gapPct = d.kmProj > 0 ? ((d.kmReal - d.kmProj) / d.kmProj) * 100 : 0;
+                  const gapColor = d.gap >= 0 ? "var(--success)" : "var(--destructive)";
+                  const perfColor = colorByPerf(d.perf);
                   return (
-                    <div className="rounded-lg border bg-popover shadow-lg p-3 min-w-[240px]" style={{ borderColor: "var(--border)" }}>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Auditoria</div>
-                      <div className="text-sm font-semibold text-foreground mb-2">{label}</div>
-                      <dl className="space-y-1 text-xs">
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium">{fmtNum(d.pneus)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM real</dt><dd className="font-medium" style={{ color: "var(--chart-1)" }}>{fmtNum(d.kmReal)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM projetado</dt><dd className="font-medium" style={{ color: "var(--chart-3)" }}>{fmtNum(d.kmProj)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Δ (real − proj.)</dt><dd className="font-medium" style={{ color: d.gap >= 0 ? "var(--success)" : "var(--destructive)" }}>{(d.gap >= 0 ? "+" : "")}{fmtNum(d.gap)} km</dd></div>
-                        <div className="flex justify-between gap-4 border-t pt-1 mt-1" style={{ borderColor: "var(--border)" }}>
-                          <dt className="text-muted-foreground">Performance</dt>
-                          <dd className="font-semibold" style={{ color: colorByPerf(d.perf) }}>{fmtPct(d.perf)} <span className="text-muted-foreground font-normal">({gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%)</span></dd>
+                    <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-xl p-0 min-w-[280px] overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                      <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border)", background: "color-mix(in oklab, var(--primary) 6%, transparent)" }}>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Auditoria · ciclo encerrado</div>
+                          <div className="text-sm font-display font-semibold text-foreground">{label}</div>
                         </div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Custo enc.</dt><dd className="font-medium">{fmtMoneyK(d.custo)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">CPK</dt><dd className="font-medium">{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Performance</div>
+                          <div className="font-display font-bold" style={{ color: perfColor }}>{fmtPct(d.perf)}</div>
+                        </div>
+                      </div>
+                      {/* TOTAIS DESTACADOS */}
+                      <div className="grid grid-cols-2 gap-px bg-border/60">
+                        <div className="p-2.5 bg-card">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Σ KM real</div>
+                          <div className="font-display font-bold tabular-nums" style={{ color: "var(--chart-1)" }}>{fmtNum(d.kmReal)}</div>
+                        </div>
+                        <div className="p-2.5 bg-card">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Σ KM projetado</div>
+                          <div className="font-display font-bold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtNum(d.kmProj)}</div>
+                        </div>
+                      </div>
+                      <div className="px-3 py-2 border-t border-b text-xs flex items-center justify-between" style={{ borderColor: "var(--border)", background: `color-mix(in oklab, ${gapColor} 8%, transparent)` }}>
+                        <span className="text-muted-foreground">Δ (real − projetado)</span>
+                        <span className="font-semibold tabular-nums" style={{ color: gapColor }}>{(d.gap >= 0 ? "+" : "")}{fmtNum(d.gap)} km · {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%</span>
+                      </div>
+                      <dl className="p-3 space-y-1 text-xs">
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pneus considerados</dt><dd className="font-medium tabular-nums">{fmtNum(d.pneus)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Custo encerrado</dt><dd className="font-medium tabular-nums">{fmtMoneyK(d.custo)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">CPK da vida</dt><dd className="font-semibold tabular-nums" style={{ color: colorByCpk(d.cpk) }}>{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
                       </dl>
                     </div>
                   );
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-              <Bar yAxisId="km" dataKey="kmReal" name="KM real" fill="var(--chart-1)" radius={[6, 6, 0, 0]} barSize={28} />
-              <Bar yAxisId="km" dataKey="kmProj" name="KM projetado" fill="var(--chart-3)" radius={[6, 6, 0, 0]} barSize={28} />
-              <Line yAxisId="perf" type="monotone" dataKey="perf" name="Performance %" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--accent)" }} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType="circle" />
+              <Bar yAxisId="km" dataKey="kmReal" name="KM real" fill="url(#gReal)" radius={[8, 8, 0, 0]} barSize={26} />
+              <Bar yAxisId="km" dataKey="kmProj" name="KM projetado" fill="url(#gProj)" radius={[8, 8, 0, 0]} barSize={26} />
+              <Line yAxisId="perf" type="monotone" dataKey="perf" name="Performance %" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--accent)", strokeWidth: 2, stroke: "var(--card)" }} activeDot={{ r: 6 }} />
             </ComposedChart>
           </ResponsiveContainer>
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Pneus c/ enc.</div><div className="font-semibold">{fmtNum(data.pneusComEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Ciclos enc.</div><div className="font-semibold">{fmtNum(data.ciclosEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM real</div><div className="font-semibold" style={{ color: "var(--chart-1)" }}>{fmtNum(data.kmEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM projetado</div><div className="font-semibold" style={{ color: "var(--chart-3)" }}>{fmtNum(data.kmProjEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Pneus c/ enc.</div><div className="font-semibold tabular-nums">{fmtNum(data.pneusComEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Ciclos enc.</div><div className="font-semibold tabular-nums">{fmtNum(data.ciclosEnc)}</div></div>
+            <div className="rounded-md px-3 py-2" style={{ background: "color-mix(in oklab, var(--chart-1) 10%, transparent)" }}><div className="text-muted-foreground">Σ KM real</div><div className="font-semibold tabular-nums" style={{ color: "var(--chart-1)" }}>{fmtNum(data.kmEnc)}</div></div>
+            <div className="rounded-md px-3 py-2" style={{ background: "color-mix(in oklab, var(--chart-3) 10%, transparent)" }}><div className="text-muted-foreground">Σ KM projetado</div><div className="font-semibold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtNum(data.kmProjEnc)}</div></div>
           </div>
         </FlatCard>
       </Section>
