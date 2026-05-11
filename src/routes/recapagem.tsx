@@ -133,7 +133,7 @@ function Page() {
         </div>
       </ChartCard>
 
-      <InsightsByFilial groups={groups} />
+      <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
   );
 }
