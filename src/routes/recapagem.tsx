@@ -3,13 +3,13 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { isRecap, fabricante } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { fmtMoneyK, fmtNum } from "@/lib/format";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Zap, AlertCircle, DollarSign } from "lucide-react";
+import { Zap, AlertCircle, DollarSign, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const PRECO_RECAP = 800;
@@ -19,45 +19,41 @@ export const Route = createFileRoute("/recapagem")({ component: Page,
   head: () => ({ meta: [{ title: "Recapagem · Análise de Pneus - Grupo Mateus" }, { name: "description", content: "Pneus aptos para recapagem." }]}) });
 
 function Page() {
-  const { filtered } = useFilters();
+  const { filtered, filters } = useFilters();
   const aptos = useMemo(() => filtered.filter(isRecap), [filtered]);
 
   const porFilial = useMemo(() => {
     const m = new Map<string, number>();
     for (const t of aptos) m.set(t.fi, (m.get(t.fi) || 0) + 1);
-    return [...m.entries()].map(([fi, n]) => ({ fi: fi.length>16?fi.slice(0,16)+"…":fi, n })).sort((a,b)=>b.n-a.n).slice(0,10);
+    return [...m.entries()].map(([fi, n]) => ({ fi: fi.length > 16 ? fi.slice(0, 16) + "…" : fi, fiFull: fi, n })).sort((a, b) => b.n - a.n).slice(0, 10);
   }, [aptos]);
 
   const porFab = useMemo(() => {
     const m = new Map<string, number>();
     for (const t of aptos) m.set(fabricante(t.md), (m.get(fabricante(t.md)) || 0) + 1);
-    return [...m.entries()].map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v);
+    return [...m.entries()].map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
   }, [aptos]);
 
   const custoEst = aptos.length * PRECO_RECAP;
   const economia = aptos.length * (PRECO_NOVO - PRECO_RECAP);
-  const criticos = aptos.filter(t=>(t.mm??99)<=2).length;
+  const criticos = aptos.filter((t) => (t.mm ?? 99) <= 2).length;
 
-  const groups = useMemo<FilialInsights[]>(() => {
-    type Acc = { aptos: number; criticos: number; soma: number };
-    const m = new Map<string, Acc>();
-    for (const t of aptos) {
-      const e = m.get(t.fi) || { aptos: 0, criticos: 0, soma: 0 };
-      e.aptos += 1;
-      if ((t.mm ?? 99) <= 2) e.criticos += 1;
-      e.soma += t.mm ?? 0;
-      m.set(t.fi, e);
+  const insights = useMemo<Insight[]>(() => {
+    const list: Insight[] = [];
+    if (!aptos.length) {
+      list.push({ icon: Target, severity: "info", title: "Sem pneus aptos", desc: "Nenhum pneu com sulco ≤ 4 mm no escopo filtrado." });
+      return list;
     }
-    return [...m.entries()].sort((a, b) => b[1].aptos - a[1].aptos).map(([fi, e]) => {
-      const economia = e.aptos * (PRECO_NOVO - PRECO_RECAP);
-      const custo = e.aptos * PRECO_RECAP;
-      const insights: Insight[] = [];
-      insights.push({ icon: Zap, severity: "success", title: "Economia da recapagem", desc: `Recapando ${fmtNum(e.aptos)} pneus, deixa de gastar ${fmtMoneyK(economia)} em pneus novos.` });
-      insights.push({ icon: DollarSign, severity: "info", title: "Investimento estimado", desc: `${fmtMoneyK(custo)} em recapagens (${fmtNum(e.aptos)} × R$ ${PRECO_RECAP}).` });
-      if (e.criticos > 0) insights.push({ icon: AlertCircle, severity: "destructive", title: "Pneus críticos (≤2mm)", desc: `${fmtNum(e.criticos)} pneus em risco — recapar imediatamente ou retirar de uso.` });
-      return { filial: fi, metric: `${fmtNum(e.aptos)} aptos · ${fmtNum(e.criticos)} críticos · economia ${fmtMoneyK(economia)}`, insights };
-    });
-  }, [aptos]);
+    list.push({ icon: Zap, severity: "success", title: "Economia da recapagem", desc: `${fmtNum(aptos.length)} pneus aptos — economia potencial de ${fmtMoneyK(economia)} vs comprar novo.` });
+    list.push({ icon: DollarSign, severity: "info", title: "Investimento estimado", desc: `${fmtMoneyK(custoEst)} (${fmtNum(aptos.length)} × R$ ${PRECO_RECAP}).` });
+    if (criticos > 0) list.push({ icon: AlertCircle, severity: "destructive", title: "Pneus críticos (≤2 mm)", desc: `${fmtNum(criticos)} pneus em risco — recapar ou retirar de uso imediatamente.` });
+    if (filters.filial === "all" && porFilial.length > 1) {
+      list.push({ icon: Target, severity: "primary", title: "Filiais com mais aptos", desc: `${porFilial.slice(0, 3).map((f) => `${f.fiFull} (${fmtNum(f.n)})`).join(" · ")}.` });
+    }
+    return list;
+  }, [aptos, filters.filial, criticos, economia, custoEst, porFilial]);
+
+  const scope = filters.filial !== "all" ? { label: filters.filial, metric: `${fmtNum(aptos.length)} aptos · ${fmtNum(criticos)} críticos · economia ${fmtMoneyK(economia)}` } : undefined;
 
   return (
     <>
@@ -79,23 +75,35 @@ function Page() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <ChartCard title="Aptos por Filial" subtitle="Top 10">
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={porFilial}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="fi" stroke="var(--muted-foreground)" fontSize={10} angle={-25} textAnchor="end" height={70} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              <Bar dataKey="n" fill="var(--chart-3)" radius={[6,6,0,0]} />
+            <BarChart data={porFilial} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="recFil" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.5} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="fi" stroke="var(--muted-foreground)" fontSize={10} angle={-25} textAnchor="end" height={70} tickLine={false} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-elegant)" }} />
+              <Bar dataKey="n" fill="url(#recFil)" radius={[10, 10, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
         <ChartCard title="Aptos por Fabricante">
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={porFab}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="k" stroke="var(--muted-foreground)" fontSize={11} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8 }} />
-              <Bar dataKey="v" fill="var(--chart-2)" radius={[6,6,0,0]} />
+            <BarChart data={porFab} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="recFab" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.5} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="k" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
+              <Tooltip cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }} contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--shadow-elegant)" }} />
+              <Bar dataKey="v" fill="url(#recFab)" radius={[10, 10, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -137,7 +145,7 @@ function Page() {
         </div>
       </ChartCard>
 
-      <InsightsByFilial groups={groups} />
+      <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
   );
 }

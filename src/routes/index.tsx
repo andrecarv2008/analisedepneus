@@ -5,7 +5,7 @@ import { calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusN
 import { PageHeader } from "@/components/PageHeader";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ComposedChart, Line,
@@ -43,7 +43,7 @@ const colorByCpk = (c: number) => (!c ? "var(--muted-foreground)" : c < 0.06 ? "
 const colorByPerf = (p: number) => (!p ? "var(--muted-foreground)" : p >= 95 ? "var(--success)" : p >= 70 ? "var(--warning)" : "var(--destructive)");
 
 function Dashboard() {
-  const { filtered } = useFilters();
+  const { filtered, filters } = useFilters();
   const [selVida, setSelVida] = useState<number>(2);
 
   const data = useMemo(() => {
@@ -95,12 +95,20 @@ function Dashboard() {
 
   const sel = data.vidas.find((v) => v.v === selVida) ?? data.vidas[0];
 
-  // Insights por filial — ciclos encerrados
-  const groups = useMemo<FilialInsights[]>(() => {
-    type Acc = { c: number; k: number; kp: number; pneus: number; recap: number; criticos: number; ciclos: number };
-    const m = new Map<string, Acc>();
+  // Insights consolidados sobre o escopo filtrado (geral por padrão; após filtrar, reflete o filtro)
+  const insights = useMemo<Insight[]>(() => {
+    const list: Insight[] = [];
+    if (!filtered.length) return list;
+
+    const desgPorFil = new Map<string, number>();
+    for (const d of calcularDesgasteIrregular(filtered)) desgPorFil.set(d.fi, (desgPorFil.get(d.fi) || 0) + 1);
+    const desgTotal = [...desgPorFil.values()].reduce((a, b) => a + b, 0);
+
+    // Por filial — para comparativos
+    type FAcc = { fi: string; c: number; k: number; kp: number; pneus: number; recap: number; criticos: number; ciclos: number };
+    const m = new Map<string, FAcc>();
     for (const t of filtered) {
-      const e = m.get(t.fi) || { c: 0, k: 0, kp: 0, pneus: 0, recap: 0, criticos: 0, ciclos: 0 };
+      const e = m.get(t.fi) || { fi: t.fi, c: 0, k: 0, kp: 0, pneus: 0, recap: 0, criticos: 0, ciclos: 0 };
       const s = encerradoStats(t);
       e.c += s.custo; e.k += s.kmReal; e.kp += s.kmProj; e.ciclos += s.ciclos;
       e.pneus += 1;
@@ -108,51 +116,80 @@ function Dashboard() {
       if ((t.mm ?? 99) <= 2) e.criticos += 1;
       m.set(t.fi, e);
     }
-    const arr = [...m.entries()].map(([fi, e]) => ({
-      fi, ...e,
-      cpk: e.k > 0 ? e.c / e.k : 0,
-      perf: e.kp > 0 ? (e.k / e.kp) * 100 : 0,
+    const filiaisArr = [...m.values()].map((f) => ({
+      ...f,
+      cpk: f.k > 0 ? f.c / f.k : 0,
+      perf: f.kp > 0 ? (f.k / f.kp) * 100 : 0,
     }));
-    const validas = arr.filter((f) => f.ciclos > 0);
+    const validas = filiaisArr.filter((f) => f.ciclos > 0);
     const melhorCpk = validas.length ? validas.reduce((a, b) => (a.cpk < b.cpk ? a : b)) : null;
-    const desgPorFil = new Map<string, number>();
-    for (const d of calcularDesgasteIrregular(filtered)) desgPorFil.set(d.fi, (desgPorFil.get(d.fi) || 0) + 1);
+    const piorCpk = validas.length ? validas.reduce((a, b) => (a.cpk > b.cpk ? a : b)) : null;
+    const melhorPerf = validas.length ? validas.reduce((a, b) => (a.perf > b.perf ? a : b)) : null;
 
-    const out: FilialInsights[] = arr
-      .sort((a, b) => b.pneus - a.pneus)
-      .slice(0, 8)
-      .map((f) => {
-        const list: Insight[] = [];
-        if (f.ciclos === 0) {
-          list.push({ icon: Lightbulb, severity: "info", title: "Sem ciclos encerrados", desc: `${fmtNum(f.pneus)} pneus na filial, mas nenhum fechou vida ainda — sem base para CPK real.` });
-        } else {
-          if (melhorCpk && f.fi === melhorCpk.fi) {
-            list.push({ icon: Target, severity: "success", title: "Referência em CPK", desc: `Melhor CPK da operação: ${fmtCpk(f.cpk)} sobre ${fmtNum(f.ciclos)} ciclos encerrados.` });
-          } else if (melhorCpk) {
-            const gap = ((f.cpk - melhorCpk.cpk) / melhorCpk.cpk) * 100;
-            list.push({
-              icon: gap > 20 ? AlertTriangle : Target,
-              severity: gap > 20 ? "destructive" : gap > 8 ? "warning" : "info",
-              title: "CPK vs melhor filial",
-              desc: `${fmtCpk(f.cpk)} — ${gap >= 0 ? `${fmtPct(gap)} acima` : `${fmtPct(-gap)} abaixo`} de ${melhorCpk.fi} (${fmtCpk(melhorCpk.cpk)}).`,
-            });
-          }
-          if (f.perf >= 100) list.push({ icon: TrendingUp, severity: "success", title: "Performance KM acima do projetado", desc: `${fmtPct(f.perf)} de cumprimento — superou a projeção em ${fmtNum(f.k - f.kp)} km.` });
-          else list.push({ icon: TrendingDown, severity: f.perf >= 70 ? "warning" : "destructive", title: "Performance KM abaixo do projetado", desc: `${fmtPct(f.perf)} — gap de ${fmtNum(f.kp - f.k)} km vs projeção.` });
-        }
-        if (f.recap > 0) list.push({ icon: Zap, severity: "success", title: "Oportunidade de recapagem", desc: `${fmtNum(f.recap)} pneus aptos · economia potencial ${fmtMoneyK(f.recap * 1600)}.` });
-        if (f.criticos > 0) list.push({ icon: AlertTriangle, severity: "destructive", title: "Pneus críticos (≤2mm)", desc: `${fmtNum(f.criticos)} pneus em estado crítico — risco operacional imediato.` });
-        const desg = desgPorFil.get(f.fi) || 0;
-        if (desg > 0) list.push({ icon: AlertTriangle, severity: "warning", title: "Desgaste irregular", desc: `${fmtNum(desg)} pares dianteiros com Δ ≥ 1,6mm — revisar alinhamento.` });
+    // CPK global
+    list.push({
+      icon: data.cpkGlobal < 0.06 ? Target : data.cpkGlobal < 0.07 ? Lightbulb : AlertTriangle,
+      severity: data.cpkGlobal < 0.06 ? "success" : data.cpkGlobal < 0.07 ? "warning" : "destructive",
+      title: "CPK consolidado",
+      desc: `${fmtCpk(data.cpkGlobal)} sobre ${fmtNum(data.ciclosEnc)} ciclos encerrados em ${fmtNum(data.pneusComEnc)} pneus.`,
+    });
 
-        return {
-          filial: f.fi,
-          metric: `${fmtNum(f.pneus)} pneus · CPK ${f.cpk > 0 ? fmtCpk(f.cpk) : "—"} · perf ${f.perf > 0 ? fmtPct(f.perf) : "—"}`,
-          insights: list,
-        };
+    // Performance global
+    list.push({
+      icon: data.perfGlobal >= 95 ? TrendingUp : TrendingDown,
+      severity: data.perfGlobal >= 95 ? "success" : data.perfGlobal >= 70 ? "warning" : "destructive",
+      title: "Performance KM",
+      desc: `${fmtPct(data.perfGlobal)} de aproveitamento — ${fmtNum(Math.abs(data.kmEnc - data.kmProjEnc))} km ${data.kmEnc >= data.kmProjEnc ? "acima" : "abaixo"} do projetado.`,
+    });
+
+    // Comparativos entre filiais (apenas quando não há filial específica filtrada)
+    if (filters.filial === "all" && validas.length > 1) {
+      if (melhorCpk && piorCpk && melhorCpk.fi !== piorCpk.fi) {
+        const gap = ((piorCpk.cpk - melhorCpk.cpk) / melhorCpk.cpk) * 100;
+        list.push({
+          icon: Target, severity: "info",
+          title: "Spread de CPK entre filiais",
+          desc: `Melhor: ${melhorCpk.fi} (${fmtCpk(melhorCpk.cpk)}). Pior: ${piorCpk.fi} (${fmtCpk(piorCpk.cpk)}) — ${fmtPct(gap)} acima.`,
+        });
+      }
+      if (melhorPerf) {
+        list.push({
+          icon: TrendingUp, severity: "primary",
+          title: "Filial com melhor performance",
+          desc: `${melhorPerf.fi} entrega ${fmtPct(melhorPerf.perf)} do projetado em ${fmtNum(melhorPerf.ciclos)} ciclos.`,
+        });
+      }
+    }
+
+    // Recapagem e críticos
+    if (data.recap > 0) {
+      list.push({
+        icon: Zap, severity: "success",
+        title: "Oportunidade de recapagem",
+        desc: `${fmtNum(data.recap)} pneus aptos · economia potencial ${fmtMoneyK(data.recap * 1600)} (vs novo).`,
       });
-    return out;
-  }, [filtered]);
+    }
+    if (data.criticos > 0) {
+      list.push({
+        icon: AlertTriangle, severity: "destructive",
+        title: "Pneus críticos (≤2mm)",
+        desc: `${fmtNum(data.criticos)} pneus em estado crítico — risco operacional imediato.`,
+      });
+    }
+    if (desgTotal > 0) {
+      list.push({
+        icon: AlertTriangle, severity: "warning",
+        title: "Desgaste irregular",
+        desc: `${fmtNum(desgTotal)} pares dianteiros com Δ ≥ 1,6mm — revisar alinhamento.`,
+      });
+    }
+
+    return list;
+  }, [filtered, filters.filial, data]);
+
+  const scope = filters.filial !== "all"
+    ? { label: filters.filial, metric: `${fmtNum(data.total)} pneus · CPK ${data.cpkGlobal > 0 ? fmtCpk(data.cpkGlobal) : "—"} · perf ${data.perfGlobal > 0 ? fmtPct(data.perfGlobal) : "—"}` }
+    : undefined;
 
   return (
     <>
@@ -257,7 +294,7 @@ function Dashboard() {
               <div className="font-display text-lg font-bold" style={{ color: colorByPerf(data.perfGlobal) }}>{fmtPct(data.perfGlobal)}</div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={340}>
             <ComposedChart data={data.vidas.map((v) => ({
               name: `${v.v}ª vida`,
               kmReal: v.km,
@@ -268,11 +305,21 @@ function Dashboard() {
               cpk: v.cpk,
               gap: v.km - v.kmProj,
             }))} margin={{ top: 16, right: 16, left: 8, bottom: 8 }}>
+              <defs>
+                <linearGradient id="gReal" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id="gProj" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.45} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} />
-              <YAxis yAxisId="km" stroke="var(--muted-foreground)" fontSize={11}
+              <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+              <YAxis yAxisId="km" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false}
                 tickFormatter={(v) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v/1000)}k` : `${v}`} />
-              <YAxis yAxisId="perf" orientation="right" stroke="var(--muted-foreground)" fontSize={11} domain={[0, 'dataMax + 20']}
+              <YAxis yAxisId="perf" orientation="right" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 'dataMax + 20']}
                 tickFormatter={(v) => `${Math.round(v)}%`} />
               <Tooltip
                 cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
@@ -280,37 +327,55 @@ function Dashboard() {
                   if (!active || !payload?.length) return null;
                   const d: any = payload[0].payload;
                   const gapPct = d.kmProj > 0 ? ((d.kmReal - d.kmProj) / d.kmProj) * 100 : 0;
+                  const gapColor = d.gap >= 0 ? "var(--success)" : "var(--destructive)";
+                  const perfColor = colorByPerf(d.perf);
                   return (
-                    <div className="rounded-lg border bg-popover shadow-lg p-3 min-w-[240px]" style={{ borderColor: "var(--border)" }}>
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Auditoria</div>
-                      <div className="text-sm font-semibold text-foreground mb-2">{label}</div>
-                      <dl className="space-y-1 text-xs">
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium">{fmtNum(d.pneus)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM real</dt><dd className="font-medium" style={{ color: "var(--chart-1)" }}>{fmtNum(d.kmReal)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">KM projetado</dt><dd className="font-medium" style={{ color: "var(--chart-3)" }}>{fmtNum(d.kmProj)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Δ (real − proj.)</dt><dd className="font-medium" style={{ color: d.gap >= 0 ? "var(--success)" : "var(--destructive)" }}>{(d.gap >= 0 ? "+" : "")}{fmtNum(d.gap)} km</dd></div>
-                        <div className="flex justify-between gap-4 border-t pt-1 mt-1" style={{ borderColor: "var(--border)" }}>
-                          <dt className="text-muted-foreground">Performance</dt>
-                          <dd className="font-semibold" style={{ color: colorByPerf(d.perf) }}>{fmtPct(d.perf)} <span className="text-muted-foreground font-normal">({gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%)</span></dd>
+                    <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-xl p-0 min-w-[280px] overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                      <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border)", background: "color-mix(in oklab, var(--primary) 6%, transparent)" }}>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Auditoria · ciclo encerrado</div>
+                          <div className="text-sm font-display font-semibold text-foreground">{label}</div>
                         </div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Custo enc.</dt><dd className="font-medium">{fmtMoneyK(d.custo)}</dd></div>
-                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">CPK</dt><dd className="font-medium">{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Performance</div>
+                          <div className="font-display font-bold" style={{ color: perfColor }}>{fmtPct(d.perf)}</div>
+                        </div>
+                      </div>
+                      {/* TOTAIS DESTACADOS */}
+                      <div className="grid grid-cols-2 gap-px bg-border/60">
+                        <div className="p-2.5 bg-card">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Σ KM real</div>
+                          <div className="font-display font-bold tabular-nums" style={{ color: "var(--chart-1)" }}>{fmtNum(d.kmReal)}</div>
+                        </div>
+                        <div className="p-2.5 bg-card">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Σ KM projetado</div>
+                          <div className="font-display font-bold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtNum(d.kmProj)}</div>
+                        </div>
+                      </div>
+                      <div className="px-3 py-2 border-t border-b text-xs flex items-center justify-between" style={{ borderColor: "var(--border)", background: `color-mix(in oklab, ${gapColor} 8%, transparent)` }}>
+                        <span className="text-muted-foreground">Δ (real − projetado)</span>
+                        <span className="font-semibold tabular-nums" style={{ color: gapColor }}>{(d.gap >= 0 ? "+" : "")}{fmtNum(d.gap)} km · {gapPct >= 0 ? "+" : ""}{gapPct.toFixed(1)}%</span>
+                      </div>
+                      <dl className="p-3 space-y-1 text-xs">
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pneus considerados</dt><dd className="font-medium tabular-nums">{fmtNum(d.pneus)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Custo encerrado</dt><dd className="font-medium tabular-nums">{fmtMoneyK(d.custo)}</dd></div>
+                        <div className="flex justify-between gap-4"><dt className="text-muted-foreground">CPK da vida</dt><dd className="font-semibold tabular-nums" style={{ color: colorByCpk(d.cpk) }}>{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
                       </dl>
                     </div>
                   );
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-              <Bar yAxisId="km" dataKey="kmReal" name="KM real" fill="var(--chart-1)" radius={[6, 6, 0, 0]} barSize={28} />
-              <Bar yAxisId="km" dataKey="kmProj" name="KM projetado" fill="var(--chart-3)" radius={[6, 6, 0, 0]} barSize={28} />
-              <Line yAxisId="perf" type="monotone" dataKey="perf" name="Performance %" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--accent)" }} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType="circle" />
+              <Bar yAxisId="km" dataKey="kmReal" name="KM real" fill="url(#gReal)" radius={[8, 8, 0, 0]} barSize={26} />
+              <Bar yAxisId="km" dataKey="kmProj" name="KM projetado" fill="url(#gProj)" radius={[8, 8, 0, 0]} barSize={26} />
+              <Line yAxisId="perf" type="monotone" dataKey="perf" name="Performance %" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--accent)", strokeWidth: 2, stroke: "var(--card)" }} activeDot={{ r: 6 }} />
             </ComposedChart>
           </ResponsiveContainer>
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Pneus c/ enc.</div><div className="font-semibold">{fmtNum(data.pneusComEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Ciclos enc.</div><div className="font-semibold">{fmtNum(data.ciclosEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM real</div><div className="font-semibold" style={{ color: "var(--chart-1)" }}>{fmtNum(data.kmEnc)}</div></div>
-            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Σ KM projetado</div><div className="font-semibold" style={{ color: "var(--chart-3)" }}>{fmtNum(data.kmProjEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Pneus c/ enc.</div><div className="font-semibold tabular-nums">{fmtNum(data.pneusComEnc)}</div></div>
+            <div className="rounded-md bg-muted/40 px-3 py-2"><div className="text-muted-foreground">Ciclos enc.</div><div className="font-semibold tabular-nums">{fmtNum(data.ciclosEnc)}</div></div>
+            <div className="rounded-md px-3 py-2" style={{ background: "color-mix(in oklab, var(--chart-1) 10%, transparent)" }}><div className="text-muted-foreground">Σ KM real</div><div className="font-semibold tabular-nums" style={{ color: "var(--chart-1)" }}>{fmtNum(data.kmEnc)}</div></div>
+            <div className="rounded-md px-3 py-2" style={{ background: "color-mix(in oklab, var(--chart-3) 10%, transparent)" }}><div className="text-muted-foreground">Σ KM projetado</div><div className="font-semibold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtNum(data.kmProjEnc)}</div></div>
           </div>
         </FlatCard>
       </Section>
@@ -359,7 +424,7 @@ function Dashboard() {
         </div>
       </Section>
 
-      <InsightsByFilial groups={groups} />
+      <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
   );
 }
