@@ -5,7 +5,7 @@ import { calcularDesgasteIrregular, encerradoStats, fabricante, isRecap, statusN
 import { PageHeader } from "@/components/PageHeader";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ComposedChart, Line,
