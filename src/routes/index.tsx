@@ -396,7 +396,7 @@ function Dashboard() {
         </div>
       </Section>
 
-      <InsightsByFilial groups={groups} />
+      <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
   );
 }
