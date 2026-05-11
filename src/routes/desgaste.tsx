@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
 import { calcularDesgasteIrregular } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
-import { InsightsByFilial, type FilialInsights, type Insight } from "@/components/InsightsBlock";
+import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
