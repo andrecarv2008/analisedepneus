@@ -43,7 +43,7 @@ const colorByCpk = (c: number) => (!c ? "var(--muted-foreground)" : c < 0.06 ? "
 const colorByPerf = (p: number) => (!p ? "var(--muted-foreground)" : p >= 95 ? "var(--success)" : p >= 70 ? "var(--warning)" : "var(--destructive)");
 
 function Dashboard() {
-  const { filtered } = useFilters();
+  const { filtered, filters } = useFilters();
   const [selVida, setSelVida] = useState<number>(2);
 
   const data = useMemo(() => {
