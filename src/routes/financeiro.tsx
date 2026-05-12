@@ -30,7 +30,7 @@ function Page() {
     const cpkProj = kmProjEnc > 0 ? custoEnc / kmProjEnc : 0;
     const perf = kmProjEnc > 0 ? (kmEnc / kmProjEnc) * 100 : 0;
 
-    const custoRecap = filtered.filter(isRecap).length * 800;
+    const custoRecap = filtered.filter(isRecap).length * 690;
     const custoSucata = filtered.filter((t) => statusNorm(t) === "sucata").reduce((s, t) => s + t.ct, 0);
 
     // por vida — ciclos encerrados
