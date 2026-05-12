@@ -328,33 +328,46 @@ function Page() {
         </ChartCard>
       )}
 
-      <ChartCard title="Top 12 — Combinações Marca × Dimensão" subtitle="Menores CPKs da operação" className="mb-6">
-        <ResponsiveContainer width="100%" height={340}>
-          <BarChart data={data.fabRanking.map((m) => ({ name: `${m.fab} ${m.medida}`, cpk: m.cpk, pneus: m.pneus, fab: m.fab, medida: m.medida }))} layout="vertical" margin={{ left: 140, right: 16 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-            <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => fmtCpk(v)} />
-            <YAxis type="category" dataKey="name" stroke="var(--muted-foreground)" fontSize={11} width={160} tickLine={false} axisLine={false} />
-            <Tooltip
-              cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const d: any = payload[0].payload;
-                return (
-                  <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-xl p-3" style={{ borderColor: "var(--border)" }}>
-                    <div className="font-display font-semibold text-sm mb-1.5">{d.fab} · {d.medida}</div>
-                    <dl className="space-y-1 text-xs">
-                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">CPK</dt><dd className="font-semibold tabular-nums" style={{ color: "var(--success)" }}>{fmtCpk(d.cpk)}</dd></div>
-                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium tabular-nums">{fmtNum(d.pneus)}</dd></div>
-                    </dl>
-                  </div>
-                );
-              }}
-            />
-            <Bar dataKey="cpk" radius={[0, 8, 8, 0]}>
-              {data.fabRanking.map((_, i) => <Cell key={i} fill={i < 3 ? "var(--success)" : i < 6 ? "var(--chart-1)" : "var(--chart-2)"} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <ChartCard title="Top 10 — Ranking por Dimensão e Marca" subtitle="Comparativo direto entre fabricantes na mesma medida (295 × 295, 275 × 275, 215 × 215...)" className="mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.dimGroupsTop10.map((g) => {
+            const lider = g.items[0];
+            return (
+              <div key={g.dim} className="rounded-xl border p-4" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                <div className="flex items-baseline justify-between mb-3">
+                  <div className="font-display font-semibold text-sm">Dimensão {g.dim}</div>
+                  <div className="text-[11px] text-muted-foreground">{fmtNum(g.totalPneus)} pneus · {g.items.length} marcas</div>
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="text-left py-1">#</th>
+                      <th className="text-left">Marca</th>
+                      <th className="text-right">Pneus</th>
+                      <th className="text-right">CPK</th>
+                      <th className="text-right">Δ vs líder</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.items.map((m, i) => {
+                      const delta = i > 0 ? ((m.cpk - lider.cpk) / lider.cpk) * 100 : 0;
+                      return (
+                        <tr key={i} className="border-t border-border/40">
+                          <td className="py-1.5 font-display font-semibold" style={{ color: i === 0 ? "var(--success)" : "var(--muted-foreground)" }}>{i + 1}º</td>
+                          <td className="font-medium">{m.fab}</td>
+                          <td className="text-right tabular-nums">{fmtNum(m.pneus)}</td>
+                          <td className="text-right font-semibold tabular-nums" style={{ color: i === 0 ? "var(--success)" : "var(--foreground)" }}>{fmtCpk(m.cpk)}</td>
+                          <td className="text-right tabular-nums" style={{ color: i === 0 ? "var(--muted-foreground)" : "var(--destructive)" }}>{i === 0 ? "—" : `+${delta.toFixed(1)}%`}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+        {data.dimGroupsTop10.length === 0 && <div className="text-center text-sm text-muted-foreground py-8">Sem dimensões com 2+ fabricantes para comparação.</div>}
       </ChartCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
