@@ -76,6 +76,8 @@ function Page() {
               <tr>
                 <th className="text-left py-2 px-2">Placa</th>
                 <th className="text-left">Filial</th>
+                <th className="text-center">Vida (D / E)</th>
+                <th className="text-center">DOT / Fogo (D / E)</th>
                 <th className="text-right">MM Direito</th>
                 <th className="text-right">MM Esquerdo</th>
                 <th className="text-right">Diferença</th>
@@ -88,6 +90,8 @@ function Page() {
                 <tr key={i} className="border-t border-border/50 hover:bg-secondary/30">
                   <td className="py-2 px-2 font-medium">{d.pl}</td>
                   <td className="text-muted-foreground">{d.fi}</td>
+                  <td className="text-center tabular-nums">{d.vidaD}ª / {d.vidaE}ª</td>
+                  <td className="text-center text-xs font-mono text-muted-foreground">{d.fgD} / {d.fgE}</td>
                   <td className="text-right">{d.mmD.toFixed(1)} mm</td>
                   <td className="text-right">{d.mmE.toFixed(1)} mm</td>
                   <td className="text-right font-bold" style={{ color: sevColor(d.severidade) }}>{d.diff.toFixed(2)} mm</td>
@@ -101,7 +105,7 @@ function Page() {
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">Nenhum desgaste irregular detectado.</td></tr>}
+              {list.length === 0 && <tr><td colSpan={9} className="py-12 text-center text-muted-foreground">Nenhum desgaste irregular detectado.</td></tr>}
             </tbody>
           </table>
         </div>
