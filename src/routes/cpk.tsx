@@ -177,8 +177,12 @@ function Page() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <InfoCard label="Pneus considerados" value={fmtNum(data.validos.length)} tone="var(--info)" formula="Pneus com pelo menos 1 ciclo encerrado válido." />
-        <InfoCard label="Ciclos encerrados" value={fmtNum(data.totalCiclos)} formula="Σ vidas i < vida atual com km e projetado preenchidos." />
+        <InfoCard label="Pneus na base" value={fmtNum(filtered.length)} tone="var(--info)"
+          sub={`${fmtNum(data.validos.length)} com ciclos encerrados`}
+          formula="Total de pneus no escopo filtrado." />
+        <InfoCard label="KM médio por ciclo" value={fmtNum(data.totalCiclos > 0 ? data.sumKmReal / data.totalCiclos : 0)}
+          sub={`${fmtNum(data.totalCiclos)} ciclos encerrados`}
+          formula="Σ KM real encerrado ÷ Σ ciclos encerrados — durabilidade média de uma vida." />
         <InfoCard label="KM real utilizado" value={fmtNum(data.sumKmReal)} tone="var(--success)" formula="Σ km[i] das vidas encerradas válidas." />
         <InfoCard label="KM projetado utilizado" value={fmtNum(data.sumKmProj)} tone="var(--warning)" formula="Σ kpv[i] das mesmas vidas encerradas." />
       </div>
