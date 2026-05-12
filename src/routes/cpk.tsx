@@ -380,7 +380,7 @@ function Page() {
                     {g.items.map((m, i) => {
                       const delta = i > 0 ? ((m.cpk - lider.cpk) / lider.cpk) * 100 : 0;
                       return (
-                        <tr key={i} className="border-t border-border/40">
+                        <tr key={i} className="border-t border-border/40 cursor-pointer hover:bg-secondary/40 transition-colors" onClick={() => setDrill({ fab: m.fab, medida: m.medida })} title="Clique para ver pneus e vidas que compõem este CPK">
                           <td className="py-1.5 font-display font-semibold" style={{ color: i === 0 ? "var(--success)" : "var(--muted-foreground)" }}>{i + 1}º</td>
                           <td className="font-medium">{m.fab}</td>
                           <td className="text-right tabular-nums">{fmtNum(m.pneus)}</td>
