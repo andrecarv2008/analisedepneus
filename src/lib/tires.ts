@@ -95,6 +95,10 @@ export type DesgastePair = {
   mmE: number;
   diff: number;
   severidade: "alta" | "média" | "baixa";
+  vidaD: number;
+  vidaE: number;
+  fgD: string;
+  fgE: string;
 };
 
 export function calcularDesgasteIrregular(tires: Tire[]): DesgastePair[] {
@@ -114,6 +118,8 @@ export function calcularDesgasteIrregular(tires: Tire[]): DesgastePair[] {
       out.push({
         pl, fi: D.fi, mmD: D.mm, mmE: E.mm, diff,
         severidade: diff >= 3 ? "alta" : diff >= 2.2 ? "média" : "baixa",
+        vidaD: D.v || 1, vidaE: E.v || 1,
+        fgD: String(D.fg ?? "—"), fgE: String(E.fg ?? "—"),
       });
     }
   }
