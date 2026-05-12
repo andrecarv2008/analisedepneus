@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { encerradoStats, fabricante } from "@/lib/tires";
+import { encerradoStats, fabricante, type Tire } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
 import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartCard } from "@/components/ChartCard";
 import { FilterBar } from "@/components/layout/FilterBar";
-import { fmtCpk, fmtNum, fmtPct } from "@/lib/format";
+import { fmtCpk, fmtMoneyK, fmtNum, fmtPct } from "@/lib/format";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Cell,
 } from "recharts";
-import { TrendingUp, Trophy, AlertTriangle, Target } from "lucide-react";
+import { TrendingUp, Trophy, AlertTriangle, Target, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/cpk")({
   component: Page,
