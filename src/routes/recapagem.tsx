@@ -12,7 +12,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import { Zap, AlertCircle, DollarSign, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const PRECO_RECAP = 800;
+const PRECO_RECAP = 690;
 const PRECO_NOVO = 2400;
 
 export const Route = createFileRoute("/recapagem")({ component: Page,
