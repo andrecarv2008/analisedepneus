@@ -438,6 +438,104 @@ function Page() {
       </div>
 
       <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
+
+      {/* DRILL-DOWN: pneus e vidas que compõem o CPK */}
+      <Dialog open={!!drill} onOpenChange={(o) => !o && setDrill(null)}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {drill?.fab} <span className="text-muted-foreground font-normal">· {drill?.medida}</span>
+            </DialogTitle>
+            <DialogDescription>
+              Pneus e vidas encerradas que compõem o CPK e o custo deste ranking.
+            </DialogDescription>
+          </DialogHeader>
+
+          {drillData && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 my-3">
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">CPK real</div>
+                  <div className="font-display font-semibold text-lg tabular-nums" style={{ color: "var(--success)" }}>{fmtCpk(drillData.cpk)}</div>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Performance</div>
+                  <div className="font-display font-semibold text-lg tabular-nums" style={{ color: drillData.perf >= 95 ? "var(--success)" : drillData.perf >= 70 ? "var(--warning)" : "var(--destructive)" }}>{fmtPct(drillData.perf)}</div>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Custo total</div>
+                  <div className="font-display font-semibold text-lg tabular-nums">{fmtMoneyK(drillData.totCusto)}</div>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">KM real / projetado</div>
+                  <div className="font-display font-semibold text-sm tabular-nums">{fmtNum(drillData.totKm)} <span className="text-muted-foreground">/ {fmtNum(drillData.totKmProj)}</span></div>
+                </div>
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pneus / Ciclos</div>
+                  <div className="font-display font-semibold text-lg tabular-nums">{fmtNum(drillData.tires.length)} <span className="text-muted-foreground">/ {fmtNum(drillData.totCiclos)}</span></div>
+                </div>
+              </div>
+
+              <div className="overflow-auto flex-1 border rounded-lg" style={{ borderColor: "var(--border)" }}>
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-card/95 backdrop-blur z-10 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="text-left py-2 px-3">Placa</th>
+                      <th className="text-left">Fogo</th>
+                      <th className="text-left">Filial</th>
+                      <th className="text-center">Vida atual</th>
+                      <th className="text-center">Ciclos enc.</th>
+                      <th className="text-right">KM real</th>
+                      <th className="text-right">KM projetado</th>
+                      <th className="text-right">Custo enc.</th>
+                      <th className="text-right">CPK</th>
+                      <th className="text-left pl-3">Vidas (km · custo · cpk)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drillData.tires.map((x, i) => {
+                      const closed = Math.max(0, (x.t.v || 1) - 1);
+                      const lives = [];
+                      for (let li = 0; li < closed; li++) {
+                        const k = x.t.km[li] || 0;
+                        const c = x.t.cv[li] || 0;
+                        if (k > 0 && c > 0) lives.push({ n: li + 1, k, c, cpk: c / k });
+                      }
+                      return (
+                        <tr key={i} className="border-t border-border/40 hover:bg-secondary/30">
+                          <td className="py-2 px-3 font-medium">{x.t.pl}</td>
+                          <td className="font-mono text-muted-foreground">{x.t.fg}</td>
+                          <td className="text-muted-foreground">{x.t.fi}</td>
+                          <td className="text-center tabular-nums">{x.t.v}ª</td>
+                          <td className="text-center tabular-nums">{x.ciclos}</td>
+                          <td className="text-right tabular-nums">{fmtNum(x.km)}</td>
+                          <td className="text-right tabular-nums text-muted-foreground">{fmtNum(x.kmProj)}</td>
+                          <td className="text-right tabular-nums">{fmtMoneyK(x.custo)}</td>
+                          <td className="text-right font-semibold tabular-nums" style={{ color: x.cpk <= drillData.cpk ? "var(--success)" : "var(--destructive)" }}>{fmtCpk(x.cpk)}</td>
+                          <td className="pl-3">
+                            <div className="flex flex-wrap gap-1">
+                              {lives.map((l) => (
+                                <span key={l.n} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] tabular-nums" style={{ borderColor: "var(--border)", background: "var(--chart-bg)" }}>
+                                  <strong className="text-muted-foreground">{l.n}ª</strong>
+                                  {fmtNum(l.k)}km · {fmtMoneyK(l.c)} · <span style={{ color: l.cpk <= drillData.cpk ? "var(--success)" : "var(--destructive)" }}>{fmtCpk(l.cpk)}</span>
+                                </span>
+                              ))}
+                              {lives.length === 0 && <span className="text-muted-foreground">—</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {drillData.tires.length === 0 && (
+                      <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">Nenhum pneu encontrado.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
