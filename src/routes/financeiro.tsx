@@ -210,6 +210,40 @@ function Page() {
         </ChartCard>
       </div>
 
+      <ChartCard title="Custo por Marca" subtitle="Top 12 fabricantes por custo total" className="mb-6">
+        <ResponsiveContainer width="100%" height={340}>
+          <BarChart data={data.marcas} layout="vertical" margin={{ left: 110, right: 16 }}>
+            <defs>
+              <linearGradient id="finMarca" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.55} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+            <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoneyK(v)} />
+            <YAxis type="category" dataKey="fab" stroke="var(--muted-foreground)" fontSize={11} width={120} tickLine={false} axisLine={false} />
+            <Tooltip
+              cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d: any = payload[0].payload;
+                return (
+                  <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-xl p-3 min-w-[200px]" style={{ borderColor: "var(--border)" }}>
+                    <div className="font-display font-semibold text-sm mb-1.5">{d.fab}</div>
+                    <dl className="space-y-1 text-xs">
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">Custo total</dt><dd className="font-semibold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtMoneyK(d.custo)}</dd></div>
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium tabular-nums">{fmtNum(d.pneus)}</dd></div>
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">CPK real</dt><dd className="font-medium tabular-nums" style={{ color: "var(--success)" }}>{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
+                    </dl>
+                  </div>
+                );
+              }}
+            />
+            <Bar dataKey="custo" fill="url(#finMarca)" radius={[0, 8, 8, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
       <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
   );
