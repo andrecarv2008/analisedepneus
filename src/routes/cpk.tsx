@@ -86,7 +86,7 @@ function Page() {
 
     // medidas com pelo menos 2 fabricantes para comparação
     const dims = [...new Set(mdRows.map((m) => m.medida))];
-    const dimGroups = dims
+    const dimGroupsAll = dims
       .map((dim) => {
         const items = mdRows
           .filter((m) => m.medida === dim)
@@ -94,16 +94,13 @@ function Page() {
         return { dim, items, totalPneus: items.reduce((s, x) => s + x.pneus, 0) };
       })
       .filter((g) => g.items.length >= 2)
-      .sort((a, b) => b.totalPneus - a.totalPneus)
-      .slice(0, 6);
-
-    const fabRanking = [...mdRows]
-      .sort((a, b) => a.cpk - b.cpk)
-      .slice(0, 12);
+      .sort((a, b) => b.totalPneus - a.totalPneus);
+    const dimGroups = dimGroupsAll.slice(0, 6);
+    const dimGroupsTop10 = dimGroupsAll.slice(0, 10);
 
     return {
       rows, validos, cpkMedio, cpkProjMed, perfKm, sumCusto, sumKmReal, sumKmProj, totalCiclos,
-      filiais, piores, melhores, porVida, dimGroups, fabRanking, mdRows,
+      filiais, piores, melhores, porVida, dimGroups, dimGroupsTop10, mdRows,
     };
   }, [filtered]);
 
