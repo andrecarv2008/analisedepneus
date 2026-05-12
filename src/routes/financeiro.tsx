@@ -65,10 +65,24 @@ function Page() {
       .sort((a, b) => b.custo - a.custo)
       .slice(0, 12);
 
+    // por marca (fabricante)
+    const mMarca = new Map<string, { custo: number; pneus: number; c: number; k: number }>();
+    for (const t of filtered) {
+      const fab = fabricante(t.md);
+      const e = mMarca.get(fab) || { custo: 0, pneus: 0, c: 0, k: 0 };
+      const a = encerradoStats(t);
+      e.custo += t.ct; e.pneus += 1; e.c += a.custo; e.k += a.kmReal;
+      mMarca.set(fab, e);
+    }
+    const marcas = [...mMarca.entries()]
+      .map(([fab, e]) => ({ fab, custo: e.custo, pneus: e.pneus, cpk: e.k > 0 ? e.c / e.k : 0 }))
+      .sort((a, b) => b.custo - a.custo)
+      .slice(0, 12);
+
     const economia = cpkProj > cpkReal && kmEnc > 0 ? (cpkProj - cpkReal) * kmEnc : 0;
     const prejuizo = cpkReal > cpkProj && kmEnc > 0 ? (cpkReal - cpkProj) * kmEnc : 0;
 
-    return { custoTotal, kmEnc, kmProjEnc, ciclosEnc, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, economia, prejuizo, custoEnc };
+    return { custoTotal, kmEnc, kmProjEnc, ciclosEnc, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, marcas, economia, prejuizo, custoEnc };
   }, [filtered]);
 
   const insights = useMemo<Insight[]>(() => {
