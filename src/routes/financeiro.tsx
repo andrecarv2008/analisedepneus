@@ -128,7 +128,7 @@ function Page() {
           tone={data.perf >= 95 ? "var(--success)" : data.perf >= 70 ? "var(--warning)" : "var(--destructive)"}
           formula="(Σ KM real enc. ÷ Σ KM projetado enc.) × 100 — mesma base do Dashboard e CPK." />
         <InfoCard label="Custo estimado recapagem" value={fmtMoneyK(data.custoRecap)} tone="var(--warning)"
-          formula="Pneus com mm ≤ 4 × R$ 800 (preço médio de recapagem)." />
+          formula="Pneus com mm ≤ 4 × R$ 690 (preço médio de recapagem)." />
         <InfoCard label="Economia potencial" value={fmtMoneyK(data.economia)} tone="var(--success)"
           formula="(CPK projetado − CPK real) × KM encerrado, quando real é menor que projetado." />
         <InfoCard label="Prejuízo operacional" value={fmtMoneyK(data.prejuizo)} tone="var(--destructive)"
