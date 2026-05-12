@@ -330,6 +330,7 @@ function Page() {
                   <th className="text-right">Ciclos</th>
                   <th className="text-right">CPK</th>
                   <th className="text-right">Δ vs líder</th>
+                  <th className="text-center w-10"></th>
                 </tr>
               </thead>
               <tbody>
@@ -337,7 +338,7 @@ function Page() {
                   const lider = dimItems[0];
                   const delta = lider && i > 0 ? ((m.cpk - lider.cpk) / lider.cpk) * 100 : 0;
                   return (
-                    <tr key={i} className="border-t border-border/50">
+                    <tr key={i} className="border-t border-border/50 cursor-pointer hover:bg-secondary/40 transition-colors" onClick={() => setDrill({ fab: m.fab, medida: m.medida })}>
                       <td className="py-2 font-display font-semibold" style={{ color: i === 0 ? "var(--success)" : "var(--muted-foreground)" }}>{i + 1}º</td>
                       <td className="font-medium">{m.fab}</td>
                       <td className="text-muted-foreground">{m.medida}</td>
@@ -345,6 +346,7 @@ function Page() {
                       <td className="text-right tabular-nums">{fmtNum(m.ciclos)}</td>
                       <td className="text-right font-semibold tabular-nums" style={{ color: i === 0 ? "var(--success)" : "var(--foreground)" }}>{fmtCpk(m.cpk)}</td>
                       <td className="text-right tabular-nums" style={{ color: i === 0 ? "var(--muted-foreground)" : "var(--destructive)" }}>{i === 0 ? "—" : `+${delta.toFixed(1)}%`}</td>
+                      <td className="text-center text-muted-foreground"><Search className="w-3.5 h-3.5 inline" /></td>
                     </tr>
                   );
                 })}
