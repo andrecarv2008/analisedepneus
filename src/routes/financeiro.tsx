@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { encerradoStats, isRecap, statusNorm } from "@/lib/tires";
+import { encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
 import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
@@ -30,7 +30,7 @@ function Page() {
     const cpkProj = kmProjEnc > 0 ? custoEnc / kmProjEnc : 0;
     const perf = kmProjEnc > 0 ? (kmEnc / kmProjEnc) * 100 : 0;
 
-    const custoRecap = filtered.filter(isRecap).length * 800;
+    const custoRecap = filtered.filter(isRecap).length * 690;
     const custoSucata = filtered.filter((t) => statusNorm(t) === "sucata").reduce((s, t) => s + t.ct, 0);
 
     // por vida — ciclos encerrados
@@ -65,10 +65,24 @@ function Page() {
       .sort((a, b) => b.custo - a.custo)
       .slice(0, 12);
 
+    // por marca (fabricante)
+    const mMarca = new Map<string, { custo: number; pneus: number; c: number; k: number }>();
+    for (const t of filtered) {
+      const fab = fabricante(t.md);
+      const e = mMarca.get(fab) || { custo: 0, pneus: 0, c: 0, k: 0 };
+      const a = encerradoStats(t);
+      e.custo += t.ct; e.pneus += 1; e.c += a.custo; e.k += a.kmReal;
+      mMarca.set(fab, e);
+    }
+    const marcas = [...mMarca.entries()]
+      .map(([fab, e]) => ({ fab, custo: e.custo, pneus: e.pneus, cpk: e.k > 0 ? e.c / e.k : 0 }))
+      .sort((a, b) => b.custo - a.custo)
+      .slice(0, 12);
+
     const economia = cpkProj > cpkReal && kmEnc > 0 ? (cpkProj - cpkReal) * kmEnc : 0;
     const prejuizo = cpkReal > cpkProj && kmEnc > 0 ? (cpkReal - cpkProj) * kmEnc : 0;
 
-    return { custoTotal, kmEnc, kmProjEnc, ciclosEnc, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, economia, prejuizo, custoEnc };
+    return { custoTotal, kmEnc, kmProjEnc, ciclosEnc, cpkReal, cpkProj, perf, custoRecap, custoSucata, porVida, filiais, marcas, economia, prejuizo, custoEnc };
   }, [filtered]);
 
   const insights = useMemo<Insight[]>(() => {
@@ -128,7 +142,7 @@ function Page() {
           tone={data.perf >= 95 ? "var(--success)" : data.perf >= 70 ? "var(--warning)" : "var(--destructive)"}
           formula="(Σ KM real enc. ÷ Σ KM projetado enc.) × 100 — mesma base do Dashboard e CPK." />
         <InfoCard label="Custo estimado recapagem" value={fmtMoneyK(data.custoRecap)} tone="var(--warning)"
-          formula="Pneus com mm ≤ 4 × R$ 800 (preço médio de recapagem)." />
+          formula="Pneus com mm ≤ 4 × R$ 690 (preço médio de recapagem)." />
         <InfoCard label="Economia potencial" value={fmtMoneyK(data.economia)} tone="var(--success)"
           formula="(CPK projetado − CPK real) × KM encerrado, quando real é menor que projetado." />
         <InfoCard label="Prejuízo operacional" value={fmtMoneyK(data.prejuizo)} tone="var(--destructive)"
@@ -195,6 +209,40 @@ function Page() {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      <ChartCard title="Custo por Marca" subtitle="Top 12 fabricantes por custo total" className="mb-6">
+        <ResponsiveContainer width="100%" height={340}>
+          <BarChart data={data.marcas} layout="vertical" margin={{ left: 110, right: 16 }}>
+            <defs>
+              <linearGradient id="finMarca" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.55} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+            <XAxis type="number" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => fmtMoneyK(v)} />
+            <YAxis type="category" dataKey="fab" stroke="var(--muted-foreground)" fontSize={11} width={120} tickLine={false} axisLine={false} />
+            <Tooltip
+              cursor={{ fill: "color-mix(in oklab, var(--primary) 8%, transparent)" }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d: any = payload[0].payload;
+                return (
+                  <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-xl p-3 min-w-[200px]" style={{ borderColor: "var(--border)" }}>
+                    <div className="font-display font-semibold text-sm mb-1.5">{d.fab}</div>
+                    <dl className="space-y-1 text-xs">
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">Custo total</dt><dd className="font-semibold tabular-nums" style={{ color: "var(--chart-3)" }}>{fmtMoneyK(d.custo)}</dd></div>
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">Pneus</dt><dd className="font-medium tabular-nums">{fmtNum(d.pneus)}</dd></div>
+                      <div className="flex justify-between gap-6"><dt className="text-muted-foreground">CPK real</dt><dd className="font-medium tabular-nums" style={{ color: "var(--success)" }}>{d.cpk > 0 ? fmtCpk(d.cpk) : "—"}</dd></div>
+                    </dl>
+                  </div>
+                );
+              }}
+            />
+            <Bar dataKey="custo" fill="url(#finMarca)" radius={[0, 8, 8, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       <InsightsBlock insights={insights} scope={scope} title="Insights gerais" />
     </>
