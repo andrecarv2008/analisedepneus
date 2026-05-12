@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useFilters } from "@/lib/filters-context";
-import { encerradoStats, isRecap, statusNorm } from "@/lib/tires";
+import { encerradoStats, fabricante, isRecap, statusNorm } from "@/lib/tires";
 import { InfoCard } from "@/components/InfoCard";
 import { InsightsBlock, type Insight } from "@/components/InsightsBlock";
 import { PageHeader } from "@/components/PageHeader";
