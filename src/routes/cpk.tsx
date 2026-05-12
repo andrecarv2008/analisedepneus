@@ -152,6 +152,31 @@ function Page() {
   const dimAtual = dimSel ?? data.dimGroups[0]?.dim ?? null;
   const dimItems = dimAtual ? data.dimGroups.find((g) => g.dim === dimAtual)?.items ?? [] : [];
 
+  // Drill-down: marca × dimensão selecionada
+  const [drill, setDrill] = useState<{ fab: string; medida: string } | null>(null);
+  const drillData = useMemo(() => {
+    if (!drill) return null;
+    const tires: { t: Tire; custo: number; km: number; kmProj: number; ciclos: number; cpk: number }[] = [];
+    for (const r of data.validos) {
+      if (fabricante(r.t.md) !== drill.fab) continue;
+      const med = (r.t.md || "").replace(drill.fab, "").trim() || "—";
+      if (med !== drill.medida) continue;
+      tires.push({ t: r.t, custo: r.custo, km: r.km, kmProj: r.kmProj, ciclos: r.ciclos, cpk: r.real });
+    }
+    tires.sort((a, b) => a.cpk - b.cpk);
+    const totC = tires.reduce((s, x) => s + x.custo, 0);
+    const totK = tires.reduce((s, x) => s + x.km, 0);
+    const totKp = tires.reduce((s, x) => s + x.kmProj, 0);
+    const totCic = tires.reduce((s, x) => s + x.ciclos, 0);
+    return {
+      tires,
+      totCusto: totC, totKm: totK, totKmProj: totKp, totCiclos: totCic,
+      cpk: totK > 0 ? totC / totK : 0,
+      cpkProj: totKp > 0 ? totC / totKp : 0,
+      perf: totKp > 0 ? (totK / totKp) * 100 : 0,
+    };
+  }, [drill, data.validos]);
+
   return (
     <>
       <PageHeader title="Análise de CPK" subtitle="Custo por KM rodado — apenas ciclos encerrados (vidas anteriores à atual)." />
